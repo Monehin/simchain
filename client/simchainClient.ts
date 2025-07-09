@@ -26,6 +26,9 @@ export class SimchainClient {
   private program: anchor.Program;
   private phoneUtil: PhoneNumberUtil;
   private defaultCountry: string;
+  
+  // Secret salt for hashing SIM numbers - must match on-chain salt
+  private readonly SIM_HASH_SALT = "SIMChain_v1_secure_salt_2024";
 
   constructor(private config: SimchainClientConfig) {
     validateSolanaEnv(); // throws if missing env
@@ -52,7 +55,7 @@ export class SimchainClient {
   }
 
   /**
-   * Normalize SIM number to E.164 format for consistent PDA derivation
+   * Normalize SIM number to E.164 format for consistent hashing
    * @param sim - Raw SIM number in any format
    * @param countryArg - Optional country code (e.g., 'US', 'NG', 'GB'). Defaults to client's default country.
    * @returns E.164 formatted phone number (e.g., "+1234567890") or cleaned raw string
@@ -115,6 +118,21 @@ export class SimchainClient {
   }
 
   /**
+   * Hash SIM number consistently with on-chain logic for privacy
+   * @param sim - Raw SIM number in any format
+   * @param countryArg - Optional country code for normalization
+   * @returns 32-byte hash of the normalized SIM number
+   */
+  private hashSimNumber(sim: string, countryArg?: string): Uint8Array {
+    const normalized = this.normalize(sim, countryArg);
+    const data = Buffer.concat([
+      Buffer.from(this.SIM_HASH_SALT),
+      Buffer.from(normalized)
+    ]);
+    return Uint8Array.from(crypto.createHash("sha256").update(data).digest());
+  }
+
+  /**
    * Get the E.164 normalized version of a SIM number
    * @param sim - Raw SIM number in any format
    * @param countryArg - Optional country code (e.g., 'US', 'NG', 'GB'). Defaults to client's default country.
@@ -125,11 +143,25 @@ export class SimchainClient {
   }
 
   /**
-   * Derive PDA from a normalized SIM number (does not re-normalize)
+   * Get the hashed version of a SIM number for privacy
+   * @param sim - Raw SIM number in any format
+   * @param countryArg - Optional country code for normalization
+   * @returns 32-byte hash array
    */
-  public deriveWalletPDA(normalizedSim: string): [PublicKey, number] {
+  public getHashedSimNumber(sim: string, countryArg?: string): Uint8Array {
+    return this.hashSimNumber(sim, countryArg);
+  }
+
+  /**
+   * Derive PDA from a hashed SIM number for privacy
+   * @param sim - Raw SIM number (will be normalized and hashed)
+   * @param countryArg - Optional country code for normalization
+   * @returns [PDA, bump]
+   */
+  public deriveWalletPDA(sim: string, countryArg?: string): [PublicKey, number] {
+    const simHash = this.hashSimNumber(sim, countryArg);
     return PublicKey.findProgramAddressSync(
-      [Buffer.from("wallet"), Buffer.from(normalizedSim)],
+      [Buffer.from("wallet"), Buffer.from(simHash)],
       this.program.programId
     );
   }
@@ -138,55 +170,57 @@ export class SimchainClient {
     return Uint8Array.from(crypto.createHash("sha256").update(pin).digest());
   }
 
-  /** Create the on-chain wallet (0 SOL start) - SIM number will be normalized to E.164 */
+  /** Create the on-chain wallet (0 SOL start) - SIM number will be hashed for privacy */
   async initializeWallet(sim: string, pin: string, countryArg?: string): Promise<TransactionSignature> {
-    const country = this.resolveCountry(countryArg);
-    const normalized = this.normalize(sim, country);
-    const [walletPda] = this.deriveWalletPDA(normalized);
+    if (pin.length < 6) {
+      throw new Error("PIN/passphrase must be at least 6 characters long");
+    }
+    const simHash = this.hashSimNumber(sim, countryArg);
+    const [walletPda] = this.deriveWalletPDA(sim, countryArg);
     const pinHash = this.hashPin(pin);
+    
     return this.program.methods
-      .initializeWallet(normalized, Array.from(pinHash))
+      .initializeWallet(Array.from(simHash), Array.from(pinHash))
       .accounts({
         wallet: walletPda,
-        authority: this.config.wallet.publicKey, // matches IDL
-        systemProgram: SystemProgram.programId, // matches IDL
+        authority: this.config.wallet.publicKey,
+        systemProgram: SystemProgram.programId,
       })
       .signers([this.config.wallet])
       .rpc();
   }
 
-  /** Add SOL (converted to lamports) — must be owner - SIM number will be normalized to E.164 */
+  /** Add SOL (converted to lamports) — must be owner - SIM number will be hashed for privacy */
   async addFunds(sim: string, amountSol: number, countryArg?: string): Promise<TransactionSignature> {
-    const country = this.resolveCountry(countryArg);
-    const normalized = this.normalize(sim, country);
-    const [walletPda] = this.deriveWalletPDA(normalized);
+    const [walletPda] = this.deriveWalletPDA(sim, countryArg);
     const lamports = Math.round(amountSol * LAMPORTS_PER_SOL);
+    
     return this.program.methods
       .addFunds(new anchor.BN(lamports))
       .accounts({
         wallet: walletPda,
-        owner: this.config.wallet.publicKey,         // renamed to `owner`
+        owner: this.config.wallet.publicKey,
       })
       .signers([this.config.wallet])
       .rpc();
   }
 
-  /** Returns balance in SOL - SIM number will be normalized to E.164 */
+  /** Returns balance in SOL - SIM number will be hashed for privacy */
   async checkBalance(sim: string, countryArg?: string): Promise<number> {
-    const country = this.resolveCountry(countryArg);
-    const normalized = this.normalize(sim, country);
-    const [walletPda] = this.deriveWalletPDA(normalized);
+    const [walletPda] = this.deriveWalletPDA(sim, countryArg);
+    
     // optional on-chain log:
     await this.program.methods
       .checkBalance()
       .accounts({ wallet: walletPda })
       .rpc();
+    
     // @ts-ignore - Dynamic account access
     const acct = await this.program.account.wallet.fetch(walletPda);
     return Number(acct.balance) / LAMPORTS_PER_SOL;
   }
 
-  /** Send SOL from one SIM to another (must be owner of fromSim) - SIM numbers will be normalized to E.164 */
+  /** Send SOL from one SIM to another (must be owner of fromSim) - SIM numbers will be hashed for privacy */
   async send(
     fromSim: string,
     toSim: string,
@@ -194,22 +228,44 @@ export class SimchainClient {
     countryFromArg?: string,
     countryToArg?: string
   ): Promise<TransactionSignature> {
-    const countryFrom = this.resolveCountry(countryFromArg);
-    const countryTo = this.resolveCountry(countryToArg);
-    const normalizedFrom = this.normalize(fromSim, countryFrom);
-    const normalizedTo = this.normalize(toSim, countryTo);
-    const [fromPda] = this.deriveWalletPDA(normalizedFrom);
-    const [toPda]   = this.deriveWalletPDA(normalizedTo);
-    const lamports  = Math.round(amountSol * LAMPORTS_PER_SOL);
+    const [fromPda] = this.deriveWalletPDA(fromSim, countryFromArg);
+    const [toPda] = this.deriveWalletPDA(toSim, countryToArg);
+    const lamports = Math.round(amountSol * LAMPORTS_PER_SOL);
 
     return this.program.methods
       .send(new anchor.BN(lamports))
       .accounts({
-        senderWallet:   fromPda,
+        senderWallet: fromPda,
         receiverWallet: toPda,
-        owner:          this.config.wallet.publicKey,
+        owner: this.config.wallet.publicKey,
       })
       .signers([this.config.wallet])
       .rpc();
+  }
+
+  /**
+   * Set or update the alias (nickname) for a wallet. Only the owner can set.
+   */
+  async setAlias(simNumber: string, alias: string, country?: string) {
+    if (alias.length > 32) throw new Error("Alias must be at most 32 bytes");
+    const aliasBytes = Buffer.alloc(32);
+    aliasBytes.write(alias, 0, "utf8");
+    const [walletPDA] = this.deriveWalletPDA(simNumber, country);
+    await this.program.methods.setAlias([...aliasBytes])
+      .accounts({ wallet: walletPDA, owner: this.config.wallet.publicKey })
+      .signers([this.config.wallet])
+      .rpc();
+  }
+
+  /**
+   * Get the alias (nickname) for a wallet.
+   */
+  async getAlias(simNumber: string, country?: string): Promise<string> {
+    const [walletPDA] = this.deriveWalletPDA(simNumber, country);
+    // @ts-ignore - Dynamic account access
+    const wallet = await this.program.account.wallet.fetch(walletPDA);
+    const aliasBytes: Uint8Array = wallet.alias;
+    // Convert bytes to string and remove null padding
+    return Buffer.from(aliasBytes).toString('utf8').replace(/\0+$/, '');
   }
 }

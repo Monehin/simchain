@@ -3,7 +3,7 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-simchain_wallet = "HnPUDFW5r8tRDb6W69sobYFoXRhSBGDpixNJWeAfqq6Y"
+simchain_wallet = "81K4v8JgJ64hz95gdkY2YFCc5PYkJa93VuQgPweu6usZ"
 
 [programs.devnet]
 simchain_wallet = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"

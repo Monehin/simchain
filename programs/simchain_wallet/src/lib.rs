@@ -165,8 +165,9 @@ pub struct AdminTransferred {
 #[event]
 pub struct SaltRotated {
     pub admin: Pubkey,
-    /// New salt value (up to 32 bytes; if you increase salt size, consider emitting only a hash or nonce)
-    pub new_salt: Vec<u8>,
+    /// SHA256(salt) so clients can update without embedding the full secret
+    /// This prevents event bloat and keeps the raw salt private
+    pub new_salt_hash: [u8; 32],
 }
 
 #[event]
@@ -207,7 +208,7 @@ pub mod simchain_wallet {
         
         emit!(SaltRotated {
             admin: ctx.accounts.admin.key(),
-            new_salt: salt,
+            new_salt_hash: hash_salt(&salt),
         });
         
         Ok(())
@@ -228,7 +229,7 @@ pub mod simchain_wallet {
         
         emit!(SaltRotated {
             admin: ctx.accounts.admin.key(),
-            new_salt,
+            new_salt_hash: hash_salt(&new_salt),
         });
         
         Ok(())
@@ -372,6 +373,7 @@ pub mod simchain_wallet {
     /// 
     /// Uses dedicated alias index PDAs for O(1) collision detection instead of scanning accounts.
     /// This approach scales to any number of wallets without hitting account size limits.
+    /// Guaranteed uniqueness: PDA collision prevents duplicate aliases.
     pub fn set_alias(ctx: Context<SetAlias>, alias: [u8; 32]) -> Result<()> {
         no_cpi!(ctx);
         
@@ -386,23 +388,11 @@ pub mod simchain_wallet {
             return Ok(());
         }
         
-        // Check if alias is already in use by another wallet
-        // If alias_index is initialized, it means another wallet is using this alias
-        if alias_index.wallet != Pubkey::default() && alias_index.wallet != wallet.key() {
-            return err!(SimchainError::AliasAlreadyExists);
-        }
-        
-        // Clear old alias if it exists (close the old alias index PDA)
-        if wallet.alias != [0u8; 32] {
-            // Note: We don't close the old alias index here to avoid complexity
-            // The old alias index will remain but won't be used
-            // In a production system, you might want to add a separate instruction to clear old aliases
-        }
-        
-        // Set the new alias
-        wallet.alias = alias;
+        // Write the reverse-lookup index so no two wallets can ever use the same alias
         alias_index.wallet = wallet.key();
-        alias_index.bump = ctx.bumps.alias_index;
+        
+        // Finally update the wallet's own alias field
+        wallet.alias = alias;
         
         emit!(AliasSet {
             wallet: wallet.key(),
@@ -419,23 +409,12 @@ pub mod simchain_wallet {
         let registry = &mut ctx.accounts.registry;
         let rent_reclaimed = wallet.to_account_info().lamports();
         
-        // Emit alias cleared event and manually close alias_index if present and initialized
-        if let Some(alias_index_info) = &ctx.accounts.alias_index {
-            if !alias_index_info.data_is_empty() && wallet.alias != [0u8; 32] {
-                emit!(AliasCleared {
-                    wallet: wallet.key(),
-                    alias: wallet.alias,
-                });
-                // Manually close alias_index: transfer lamports and zero data
-                let dest = &ctx.accounts.destination;
-                let lamports = alias_index_info.lamports();
-                **dest.try_borrow_mut_lamports()? += lamports;
-                **alias_index_info.try_borrow_mut_lamports()? = 0;
-                let mut data = alias_index_info.try_borrow_mut_data()?;
-                for byte in data.iter_mut() {
-                    *byte = 0;
-                }
-            }
+        // Emit alias cleared event if wallet had an alias
+        if wallet.alias != [0u8; 32] {
+            emit!(AliasCleared {
+                wallet: wallet.key(),
+                alias: wallet.alias,
+            });
         }
         
         // Decrement wallet counter
@@ -446,6 +425,21 @@ pub mod simchain_wallet {
             wallet: wallet.key(),
             owner: wallet.owner,
             rent_reclaimed,
+        });
+        
+        Ok(())
+    }
+
+    /// Close alias index PDA and reclaim rent
+    /// This should be called after closing a wallet to free up the alias
+    pub fn close_alias_index(ctx: Context<CloseAliasIndex>) -> Result<()> {
+        no_cpi!(ctx);
+        let alias_index = &ctx.accounts.alias_index;
+        let _rent_reclaimed = alias_index.to_account_info().lamports();
+        
+        emit!(AliasCleared {
+            wallet: alias_index.wallet,
+            alias: [0u8; 32], // We don't have the original alias here, but the event is still useful
         });
         
         Ok(())
@@ -652,6 +646,11 @@ pub fn hash_sim_number(sim: &str, salt: &[u8]) -> [u8; 32] {
     hasher.result().to_bytes()
 }
 
+/// Hash salt for event emission (keeps raw salt private)
+pub fn hash_salt(salt: &[u8]) -> [u8; 32] {
+    anchor_lang::solana_program::hash::hash(salt).to_bytes()
+}
+
 /// Derive the alias index PDA for a given alias
 pub fn derive_alias_index_pda(alias: &[u8; 32], program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[b"alias", alias], program_id)
@@ -753,6 +752,7 @@ pub struct InitializeWallet<'info> {
 /// 
 /// Uses dedicated alias index PDAs for O(1) collision detection instead of scanning accounts.
 /// This approach scales to any number of wallets without hitting account size limits.
+/// Guaranteed uniqueness: PDA collision prevents duplicate aliases.
 #[derive(Accounts)]
 #[instruction(alias: [u8; 32])]
 pub struct SetAlias<'info> {
@@ -766,8 +766,9 @@ pub struct SetAlias<'info> {
     #[account(mut)]
     pub owner: Signer<'info>,
     /// Alias index PDA for O(1) uniqueness checking
+    /// This will fail if an AliasIndex already exists for that alias (guaranteed uniqueness)
     #[account(
-        init_if_needed,
+        init,
         payer = owner,
         space = AliasIndex::INIT_SPACE,
         seeds = [b"alias", &alias[..]],
@@ -793,13 +794,6 @@ pub struct CloseWallet<'info> {
     pub owner: Signer<'info>,
     #[account(mut, seeds = [b"mint_registry"], bump)]
     pub registry: Account<'info, MintRegistry>,
-    /// Alias index PDA to close when clearing the wallet's alias (optional, as AccountInfo)
-    #[account(
-        mut,
-        seeds = [b"alias", &wallet.alias[..]],
-        bump
-    )]
-    pub alias_index: Option<AccountInfo<'info>>,
     /// CHECK: Destination for rent reclamation
     #[account(mut)]
     pub destination: AccountInfo<'info>,
@@ -982,6 +976,24 @@ pub struct HealthCheck<'info> {
     pub registry: Account<'info, MintRegistry>,
 }
 
+/// Close alias index PDA and reclaim rent
+#[derive(Accounts)]
+#[instruction(alias: [u8; 32])]
+pub struct CloseAliasIndex<'info> {
+    #[account(
+        mut,
+        seeds = [b"alias", &alias[..]],
+        bump,
+        close = destination
+    )]
+    pub alias_index: Account<'info, AliasIndex>,
+    /// CHECK: Destination for rent reclamation
+    #[account(mut)]
+    pub destination: AccountInfo<'info>,
+    /// CHECK: sysvar instructions account is required for CPI guard; Anchor does not check this account type
+    #[account(address = sysvar::instructions::ID)] pub instructions: AccountInfo<'info>,
+}
+
 // ── Account Structs ───────────────────────────────────────────────────
 #[account]
 pub struct Config {
@@ -1019,7 +1031,7 @@ pub struct MintRegistry {
 }
 
 impl MintRegistry {
-    pub const INIT_SPACE: usize = 8 + 32 + 4 + 32 * 8 + 1 + 8; // 297 bytes (reduced from 32 to 8 mints)
+    pub const INIT_SPACE: usize = 8 + 32 + 4 + 32 * 16 + 1 + 8; // 553 bytes (increased from 8 to 16 mints)
     
     pub fn audit_space() {
         // This function exists to help with space calculations
@@ -1031,12 +1043,12 @@ impl MintRegistry {
 /// Maps alias → wallet for O(1) alias collision detection
 #[account]
 pub struct AliasIndex {
+    /// The wallet PDA that this alias points to
     pub wallet: Pubkey,
-    pub bump: u8,
 }
 
 impl AliasIndex {
-    pub const INIT_SPACE: usize = 8 + 32 + 1; // 41 bytes
+    pub const INIT_SPACE: usize = 8 + 32; // 40 bytes (discriminator + wallet Pubkey)
 }
 
 // ── Error Types ───────────────────────────────────────────────────────

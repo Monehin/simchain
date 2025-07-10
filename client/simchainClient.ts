@@ -457,21 +457,33 @@ export class SimchainClient {
   // Close wallet
   async closeWallet(sim: string, destination: PublicKey, countryArg?: string): Promise<TransactionSignature> {
     const [walletPda] = await this.deriveWalletPDA(sim, countryArg);
-    // Get the wallet account to find its current alias
-    const walletAccount = await this.program.account.wallet.fetch(walletPda);
-    const aliasBytes = walletAccount.alias;
-    const [aliasIndexPda] = this.deriveAliasIndexPDA(aliasBytes);
-    let accounts: any = {
-      wallet: walletPda,
-      owner: this.config.wallet.publicKey,
-      registry: this.deriveMintRegistryPDA()[0],
-      aliasIndex: aliasIndexPda,
-      destination: destination,
-      instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
-    };
+    
     return this.program.methods
       .closeWallet()
-      .accounts(accounts)
+      .accounts({
+        wallet: walletPda,
+        owner: this.config.wallet.publicKey,
+        registry: this.deriveMintRegistryPDA()[0],
+        destination: destination,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+      })
+      .signers([this.config.wallet])
+      .rpc();
+  }
+
+  // Close alias index PDA to free up the alias
+  // This should be called after closing a wallet to prevent aliases from remaining "taken"
+  // IMPORTANT: The MintRegistry can only hold up to 16 approved mints due to space constraints
+  async closeAliasIndex(alias: Uint8Array, destination: PublicKey): Promise<TransactionSignature> {
+    const [aliasIndexPda] = this.deriveAliasIndexPDA(alias);
+    
+    return this.program.methods
+      .closeAliasIndex()
+      .accounts({
+        aliasIndex: aliasIndexPda,
+        destination: destination,
+        instructions: SYSVAR_INSTRUCTIONS_PUBKEY,
+      })
       .signers([this.config.wallet])
       .rpc();
   }

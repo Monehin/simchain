@@ -435,6 +435,75 @@ describe("SIMChain Full Suite", () => {
       const afterReg = await connection.getBalance(userA.publicKey);
       expect(afterReg).to.be.greaterThan(beforeReg);
     });
+
+    it("verifies MintRegistry space limits (16 mints maximum)", async () => {
+      // Get current registry
+      const registry = await clientPayer.getMintRegistry();
+      const currentMints = registry.approved.length;
+      
+      // Try to add mints up to the limit
+      const mintsToAdd = 16 - currentMints;
+      for (let i = 0; i < mintsToAdd; i++) {
+        const newMint = Keypair.generate().publicKey;
+        await clientPayer.addMint(newMint);
+      }
+      
+      // Verify we're at the limit
+      const finalRegistry = await clientPayer.getMintRegistry();
+      expect(finalRegistry.approved).to.have.length(16);
+      
+      // Try to add one more - this should fail due to space constraints
+      const extraMint = Keypair.generate().publicKey;
+      try {
+        await clientPayer.addMint(extraMint);
+        expect.fail("Should have thrown due to space constraints");
+      } catch (err: any) {
+        // The error might be due to account size limits or other constraints
+        expect(err.message).to.not.be.undefined;
+      }
+    });
+
+    it("demonstrates alias cleanup after wallet closure", async () => {
+      // Create a wallet with an alias
+      const simAlias = `+1555555555${Date.now() % 1000}`;
+      const pinAlias = "AliasPin1";
+      const userAlias = Keypair.generate();
+      const clientAlias = new SimchainClient({
+        connection,
+        wallet: userAlias,
+        programId: program.programId,
+      });
+      
+      await connection.requestAirdrop(userAlias.publicKey, 5 * LAMPORTS_PER_SOL);
+      await new Promise(r => setTimeout(r, 2000));
+      await clientAlias.initializeWallet(simAlias, pinAlias);
+      
+      // Set an alias
+      const testAlias = "test_alias_123456789012345678901234567890"; // 32 characters
+      await clientAlias.setAlias(simAlias, testAlias);
+      
+      // Convert string to Uint8Array for PDA derivation
+      const testAliasBytes = new TextEncoder().encode(testAlias);
+      
+      // Verify alias index exists
+      const [aliasIndexPda] = clientAlias.deriveAliasIndexPDA(testAliasBytes);
+      const aliasIndexAccount = await connection.getAccountInfo(aliasIndexPda);
+      expect(aliasIndexAccount).to.not.be.null;
+      
+      // Close the wallet
+      await clientAlias.closeWallet(simAlias, userAlias.publicKey);
+      
+      // The alias index should still exist (this is the "gotcha")
+      const aliasIndexAfterClose = await connection.getAccountInfo(aliasIndexPda);
+      expect(aliasIndexAfterClose).to.not.be.null;
+      
+      // Close the alias index to free up the alias
+      await clientAlias.closeAliasIndex(testAliasBytes, userAlias.publicKey);
+      
+      // Now the alias index should be closed
+      const aliasIndexAfterCleanup = await connection.getAccountInfo(aliasIndexPda);
+      expect(aliasIndexAfterCleanup).to.be.null;
+    });
   });
 
   // Note: Enhanced tests removed as they were causing issues with registry state

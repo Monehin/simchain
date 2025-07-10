@@ -3,13 +3,14 @@
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check",
     "validate:env": "ts-node scripts/validate-env.ts",
-    "test:env": "ts-node scripts/validate-env.ts",
-    "start": "ts-node scripts/validate-env.ts && echo 'Environment validation passed, starting application...'",
-    "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+    "test": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts",
+    "test:full": "./scripts/run-tests.sh",
+    "clean": "./scripts/clean-validator.sh"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
     "@solana/web3.js": "^1.87.6",
+    "@solana/spl-token": "^0.4.0",
     "google-libphonenumber": "^3.2.42",
     "ts-node": "^10.9.2"
   },

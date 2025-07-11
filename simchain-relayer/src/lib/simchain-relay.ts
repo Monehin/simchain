@@ -27,6 +27,9 @@ export interface WalletInfo {
   address: string;
   balance: number;
   exists: boolean;
+  pinHash?: Uint8Array;
+  owner?: string;
+  alias?: Uint8Array;
 }
 
 export interface RelayError {
@@ -195,6 +198,28 @@ export class SimchainRelay {
           message: 'Failed to connect to validator'
         }
       };
+    }
+  }
+
+  // Check if wallet exists
+  async walletExists(sim: string): Promise<boolean> {
+    try {
+      const [walletPda] = await this.deriveWalletPDA(sim);
+      const walletAccount = await this.config.connection.getAccountInfo(walletPda);
+      return walletAccount !== null;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  // Get wallet balance
+  async getWalletBalance(sim: string): Promise<number> {
+    try {
+      const [walletPda] = await this.deriveWalletPDA(sim);
+      const balance = await this.config.connection.getBalance(walletPda);
+      return balance / LAMPORTS_PER_SOL;
+    } catch (error) {
+      return 0;
     }
   }
 
@@ -662,6 +687,42 @@ export class SimchainRelay {
 
       const balance = walletAccount.lamports / LAMPORTS_PER_SOL;
       
+      // Parse wallet account data to get PIN hash and other fields
+      try {
+        // The wallet account data structure (137 bytes):
+        // - 8 bytes: discriminator
+        // - 32 bytes: sim_hash
+        // - 32 bytes: owner (Pubkey)
+        // - 32 bytes: pin_hash
+        // - 1 byte: bump
+        // - 32 bytes: alias
+        const data = walletAccount.data;
+        if (data.length >= 137) {
+          const simHash = data.slice(8, 40);
+          const ownerBytes = data.slice(40, 72);
+          const pinHash = data.slice(72, 104);
+          const bump = data[104];
+          const alias = data.slice(105, 137);
+          
+          const owner = new PublicKey(ownerBytes);
+          
+          return {
+            success: true,
+            data: {
+              address: walletPda.toBase58(),
+              balance,
+              exists: true,
+              pinHash: new Uint8Array(pinHash),
+              owner: owner.toBase58(),
+              alias: new Uint8Array(alias)
+            }
+          };
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse wallet account data:', parseError);
+      }
+      
+      // Fallback to basic info if parsing fails
       return {
         success: true,
         data: {

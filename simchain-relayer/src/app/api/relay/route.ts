@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Connection, Keypair, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { AnchorProvider } from '@coral-xyz/anchor';
-import { SimchainRelay } from '../../../lib/simchain-relay-test';
-import idl from '../idl/simchain_wallet.json';
+import { SimchainRelay } from '../../../lib/simchain-relay';
+import { AliasValidator, PinValidator } from '../../../lib/validation';
+import { DatabaseService } from '../../../lib/database';
+
 import fs from 'fs';
 import path from 'path';
 
@@ -166,7 +168,11 @@ export async function POST(request: NextRequest) {
       case 'initialize-wallet':
         return await handleInitializeWallet(params);
       
-
+      case 'verify-pin':
+        return await handleVerifyPin(params);
+      
+      case 'set-alias':
+        return await handleSetAlias(params);
       
       default:
         return NextResponse.json(
@@ -280,14 +286,260 @@ async function handleInitializeWallet(params: { sim?: string, pin?: string }) {
         { status: 400 }
       );
     }
-    const result = await relay.initializeWallet(sim, pin);
+
+    // Check if wallet already exists in database
+    const existingWallet = await DatabaseService.getWalletBySimNumber(sim);
+    if (existingWallet) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet already exists for this SIM number' },
+        { status: 409 }
+      );
+    }
+
+    const result = await relay.initializeWallet(sim, pin, wallet);
+    
+    console.log('🔍 Debug: Wallet creation result:', JSON.stringify(result, null, 2));
+    
+    // Check if the result has the expected structure
+    if (result.success && result.data && typeof result.data === 'object') {
+      console.log('✅ Debug: Result is successful and has data object');
+      
+      // The relay returns { success: true, data: { wallet: "address" } }
+      const walletAddress = (result.data as any).wallet;
+      if (walletAddress) {
+        console.log('✅ Debug: Found wallet address:', walletAddress);
+        
+        // Store wallet mapping in database
+        try {
+          await DatabaseService.createWalletMapping({
+            simNumber: sim,
+            walletAddress: walletAddress,
+            ownerAddress: wallet.publicKey.toBase58(),
+            simHash: '0x0000000000000000000000000000000000000000000000000000000000000000', // We'll get this from on-chain data later
+          });
+          console.log('✅ Debug: Wallet mapping stored successfully in database');
+        } catch (dbError) {
+          console.error('❌ Debug: Failed to store wallet mapping in database:', dbError);
+          // Don't fail the wallet creation, just log the error
+        }
+      } else {
+        console.log('❌ Debug: No wallet address found in result data');
+      }
+    } else {
+      console.log('❌ Debug: Result structure not as expected for database storage');
+    }
+
     return NextResponse.json({
       success: true,
       data: result
     });
   } catch (error) {
+    console.error('Initialize wallet error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to initialize wallet' },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleVerifyPin(params: { sim?: string, pin?: string }) {
+  try {
+    const { sim, pin } = params;
+    if (!sim || !pin) {
+      return NextResponse.json(
+        { success: false, error: 'SIM number and PIN required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate PIN format
+    if (!PinValidator.validatePin(pin)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid PIN format. Must be exactly 6 digits.' },
+        { status: 400 }
+      );
+    }
+
+    // Check if wallet exists
+    const exists = await relay.walletExists(sim);
+    if (!exists) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet not found for this SIM number' },
+        { status: 404 }
+      );
+    }
+
+    // Get wallet info to verify PIN hash
+    const walletInfo = await relay.getWalletInfo(sim);
+    if (!walletInfo.success || !walletInfo.data) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to get wallet information' },
+        { status: 500 }
+      );
+    }
+
+    // Hash the provided PIN
+    const providedPinHash = await PinValidator.hashPin(pin);
+    
+    // Get the stored PIN hash from wallet info
+    const storedPinHash = walletInfo.data.pinHash;
+    
+    if (!storedPinHash) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet data corrupted - no PIN hash found' },
+        { status: 500 }
+      );
+    }
+    
+    // Compare the provided PIN hash with the stored PIN hash
+    if (providedPinHash.length !== storedPinHash.length) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid PIN' },
+        { status: 401 }
+      );
+    }
+    
+    // Constant-time comparison to prevent timing attacks
+    let isMatch = true;
+    for (let i = 0; i < providedPinHash.length; i++) {
+      if (providedPinHash[i] !== storedPinHash[i]) {
+        isMatch = false;
+      }
+    }
+    
+    if (!isMatch) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid PIN' },
+        { status: 401 }
+      );
+    }
+
+    // PIN is valid
+    return NextResponse.json({
+      success: true,
+      data: { verified: true }
+    });
+  } catch (error) {
+    console.error('Verify PIN error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to verify PIN' },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleSetAlias(params: { sim?: string, alias?: string }) {
+  try {
+    const { sim, alias } = params;
+    if (!sim || !alias) {
+      return NextResponse.json(
+        { success: false, error: 'SIM number and alias required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate alias using the new rules
+    if (!AliasValidator.validateAlias(alias)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid alias format. Must be 2-12 characters (letters, digits, underscore, hyphen)' },
+        { status: 400 }
+      );
+    }
+
+    // Check if wallet exists in database
+    const walletMapping = await DatabaseService.getWalletBySimNumber(sim);
+    if (!walletMapping) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet not found for this SIM number' },
+        { status: 404 }
+      );
+    }
+
+    // Check if alias is already in use by another wallet
+    const aliasInUse = await DatabaseService.isAliasInUse(alias);
+    if (aliasInUse) {
+      return NextResponse.json(
+        { success: false, error: 'Alias is already in use by another wallet' },
+        { status: 409 }
+      );
+    }
+
+    // Implement real on-chain alias setting
+    try {
+      // Normalize the alias to 32 bytes
+      const aliasBytes = new Uint8Array(32);
+      const encoder = new TextEncoder();
+      const aliasStringBytes = encoder.encode(alias);
+      aliasBytes.set(aliasStringBytes);
+
+      // Derive the alias index PDA
+      const [aliasIndexPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('alias'), aliasBytes],
+        PROGRAM_ID
+      );
+
+      // Get wallet info to find the wallet address
+      const walletInfo = await relay.getWalletInfo(sim);
+      if (!walletInfo.success || !walletInfo.data?.address) {
+        return NextResponse.json(
+          { success: false, error: 'Failed to get wallet address' },
+          { status: 500 }
+        );
+      }
+
+      const walletAddress = new PublicKey(walletInfo.data.address);
+
+      // Create the set_alias instruction
+      const instruction = {
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: walletAddress, isSigner: false, isWritable: true },
+          { pubkey: wallet.publicKey, isSigner: true, isWritable: true },
+          { pubkey: aliasIndexPda, isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          { pubkey: new PublicKey('Sysvar1nstructions1111111111111111111111111'), isSigner: false, isWritable: false }
+        ],
+        data: Buffer.concat([
+          // Instruction discriminator for set_alias: [122, 40, 47, 157, 153, 82, 76, 31]
+          Buffer.from([122, 40, 47, 157, 153, 82, 76, 31]),
+          // Serialize alias array (32 bytes)
+          Buffer.from(aliasBytes)
+        ])
+      };
+
+      const transaction = new Transaction();
+      transaction.add(instruction);
+
+      // Send the transaction
+      const signature = await provider.sendAndConfirm(transaction, [wallet]);
+
+      // Update database with new alias
+      try {
+        await DatabaseService.updateWalletAlias(walletMapping.walletAddress, alias, 'user');
+      } catch (dbError) {
+        console.error('Failed to update alias in database:', dbError);
+        // Don't fail the on-chain update, just log the error
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: { 
+          alias,
+          signature,
+          message: 'Alias updated successfully on-chain and in database'
+        }
+      });
+    } catch (error: any) {
+      console.error('Set alias transaction failed:', error);
+      return NextResponse.json(
+        { success: false, error: `Failed to update alias on-chain: ${error.message || 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
+  } catch (error) {
+    console.error('Set alias error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to set alias' },
       { status: 500 }
     );
   }

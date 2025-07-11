@@ -7,6 +7,8 @@ interface Wallet {
   alias: string;
   balance: number;
   simHash: string;
+  owner: string;
+  createdAt: string;
 }
 
 export default function AdminPage() {
@@ -77,7 +79,8 @@ export default function AdminPage() {
     (w) =>
       w.address.toLowerCase().includes(search.toLowerCase()) ||
       w.alias.toLowerCase().includes(search.toLowerCase()) ||
-      w.simHash.toLowerCase().includes(search.toLowerCase())
+      w.simHash.toLowerCase().includes(search.toLowerCase()) ||
+      w.owner.toLowerCase().includes(search.toLowerCase())
   );
 
   const formatAddress = (address: string) => {
@@ -140,7 +143,7 @@ export default function AdminPage() {
           <div className="flex items-center space-x-4 mb-4">
             <input
               className="flex-1 border-2 border-gray-300 p-3 rounded-lg focus:border-blue-500 focus:outline-none placeholder-gray-500"
-              placeholder="Search by wallet address, alias, or SIM hash..."
+              placeholder="Search by wallet address, alias, SIM hash, or owner..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -158,6 +161,7 @@ export default function AdminPage() {
             <thead className="bg-gray-800 text-white">
               <tr>
                 <th className="py-4 px-6 text-left font-semibold">Wallet Address</th>
+                <th className="py-4 px-6 text-left font-semibold">Owner</th>
                 <th className="py-4 px-6 text-left font-semibold">Alias</th>
                 <th className="py-4 px-6 text-left font-semibold">Balance (SOL)</th>
                 <th className="py-4 px-6 text-left font-semibold">SIM Hash</th>
@@ -174,6 +178,18 @@ export default function AdminPage() {
                         onClick={() => navigator.clipboard.writeText(w.address)}
                         className="text-blue-600 hover:text-blue-800 text-xs"
                         title="Copy address"
+                      >
+                        📋
+                      </button>
+                    </div>
+                  </td>
+                  <td className="py-4 px-6">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-700 font-mono text-sm">{formatAddress(w.owner)}</span>
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(w.owner)}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                        title="Copy owner"
                       >
                         📋
                       </button>
@@ -244,9 +260,9 @@ export default function AdminPage() {
         )}
 
         <div className="mt-6 text-sm text-gray-600">
-          <p>💡 <strong>Privacy Note:</strong> Phone numbers are not displayed for security reasons. Only wallet addresses and aliases are shown.</p>
+          <p>💡 <strong>Privacy Note:</strong> Phone numbers are not displayed for security reasons. Only wallet addresses, aliases, and owners are shown.</p>
         </div>
       </div>
     </div>
   );
-} 
+}

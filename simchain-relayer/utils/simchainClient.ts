@@ -139,10 +139,33 @@ export class SimchainClient {
     return Uint8Array.from(crypto.createHash("sha256").update(pin).digest());
   }
 
-  // Enhanced PIN validation with 6-digit numeric rule
+  // Enhanced PIN validation with stronger rules
   private validatePin(pin: string): void {
-    if (!/^[0-9]{6}$/.test(pin)) {
-      throw new Error("PIN must be exactly 6 digits");
+    if (pin.length < 8) {
+      throw new Error("PIN must be at least 8 characters long");
+    }
+    
+    // Check for numeric and alphabetic characters
+    const hasNumeric = /\d/.test(pin);
+    const hasAlpha = /[a-zA-Z]/.test(pin);
+    
+    if (!hasNumeric || !hasAlpha) {
+      throw new Error("PIN must contain both numeric and alphabetic characters");
+    }
+    
+    // Check for common weak patterns
+    if (/^(\d)\1+$/.test(pin) || /^(.)\1+$/.test(pin)) {
+      throw new Error("PIN cannot be a repeated character");
+    }
+    
+    if (/^(.)(.)(\1\2)*\1?$/.test(pin)) {
+      throw new Error("PIN cannot be a repeated pattern");
+    }
+    
+    // Additional entropy checks
+    const uniqueChars = new Set(pin.toLowerCase()).size;
+    if (uniqueChars < 4) {
+      throw new Error("PIN must contain at least 4 unique characters");
     }
   }
 

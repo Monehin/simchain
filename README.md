@@ -1,372 +1,307 @@
-# SIMChain - Solana Smart Contract Wallets for SIM Numbers
+# SIMChain Relayer - USSD Interface
 
-SIMChain is a full-stack Solana project that creates smart contract wallets tied to SIM numbers, enabling mobile money transfers through USSD gateways.
+A Next.js application that simulates a USSD interface (*906#) for the SIMChain Solana program. This demo showcases how mobile users can interact with blockchain wallets through traditional USSD menus.
 
-## 🏗️ Architecture
+## 🚀 Features
 
-- **Smart Contract**: Solana program written in Rust using Anchor framework
-- **TypeScript Client**: Reusable SDK for interacting with SIM wallets
-- **USSD Gateway**: Off-chain service for mobile money operations
-- **Relayer Node**: Transaction submission and monitoring
+### USSD Menu Interface
+- **Create Wallet**: Initialize new wallets using SIM numbers and PINs
+- **Check Balance**: View wallet balances in real-time
+- **Send Funds**: Transfer SOL between wallets using SIM numbers
+- **Set Alias**: Assign human-readable aliases to wallets
 
-## 🚀 Quick Start
+### Technical Features
+- **Solana Integration**: Full integration with SIMChain smart contract
+- **PDA Derivation**: Secure wallet derivation using SIM numbers and salt
+- **API Routes**: RESTful endpoints for all wallet operations
+- **Demo Mode**: Safe simulation environment for testing
 
-### Prerequisites
+## 📱 USSD Interface
 
-- Node.js 18+
-- Rust 1.87.0+
-- Solana CLI 1.17+
-- Anchor CLI 0.31.1+
+The app simulates a traditional USSD menu interface:
 
-### Installation
+```
+*906#
+SIMChain Wallet Service
 
+1. Create Wallet
+2. Check Balance  
+3. Send Funds
+4. Set Alias
+
+Enter option (1-4):
+```
+
+### Usage Examples
+
+#### Create Wallet
+```
+Format: SIM*PIN
+Example: +2348012345678*MyPin123
+Response: Wallet created ✅
+```
+
+#### Check Balance
+```
+Input: +2348012345678
+Response: Balance: 2.1345 SOL
+```
+
+#### Send Funds
+```
+Format: FROM_SIM*TO_SIM*AMOUNT
+Example: +2348012345678*+2348098765432*0.1
+Response: Sent 0.1000 SOL
+```
+
+#### Set Alias
+```
+Format: SIM*ALIAS
+Example: +2348012345678*mywallet
+Response: Alias set ✅
+```
+
+## 🛠️ Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd simchain-relayer
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd SIMChain
+   cp .env.local.example .env.local
+   ```
+   
+   Edit `.env.local`:
+   ```env
+   SOLANA_RPC_URL=http://127.0.0.1:8899
+   PROGRAM_ID=DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r
+   ```
 
-# Install dependencies
-yarn install
-
-# Build the program
-anchor build
-
-# Run tests
-anchor test
-```
-
-## 🔧 Environment Configuration
-
-SIMChain uses environment variables for configuration. Before running the application, you need to set up your environment variables.
-
-### 1. Copy Environment Template
-
+4. **Start the development server**
 ```bash
-# Copy the example environment file
-cp env.example .env
+   npm run dev
+   ```
 
-# Edit the .env file with your actual values
-nano .env
+5. **Open your browser**
+   Navigate to `http://localhost:3000`
+
+## 🏗️ Project Structure
+
+```
+simchain-relayer/
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── create-wallet/
+│   │   │   │   └── route.ts
+│   │   │   ├── check-balance/
+│   │   │   │   └── route.ts
+│   │   │   ├── send-funds/
+│   │   │   │   └── route.ts
+│   │   │   └── set-alias/
+│   │   │       └── route.ts
+│   │   ├── page.tsx
+│   │   ├── layout.tsx
+│   │   └── globals.css
+│   └── lib/
+│       ├── sim-utils.ts
+│       └── solana.ts
+├── simchain_wallet.json
+├── .env.local
+└── README.md
 ```
 
-### 2. Required Environment Variables
+## 🔧 API Endpoints
 
-#### Development Environment
-```bash
-# Solana Configuration
-SOLANA_CLUSTER_URL=http://127.0.0.1:8899
-PROGRAM_ID=7QPKWcBGt8J7UJkiFyezv6RcoNdfwy1aAatbx6W2F21a
-
-# Security Configuration
-JWT_SECRET=your_jwt_secret_here
-ENCRYPTION_KEY=your_encryption_key_here
-
-# Logging Configuration
-LOG_LEVEL=info
-PORT=3000
-NODE_ENV=development
-```
-
-#### Production Environment
-```bash
-# All development variables plus:
-AT_API_KEY=your_africastalking_api_key_here
-AT_USERNAME=your_africastalking_username_here
-AT_SENDER_ID=your_sender_id_here
-DATABASE_URL=postgresql://username:password@localhost:5432/simchain
-REDIS_URL=redis://localhost:6379
-LOG_FILE=./logs/simchain.log
-```
-
-### 3. Validate Environment Configuration
-
-```bash
-# Validate environment variables
-yarn validate:env
-
-# Or test environment configuration
-yarn test:env
-```
-
-The validation will check for required environment variables and provide clear error messages if any are missing.
-
-## 📱 TypeScript Client Usage
-
-The SIMChain client provides a comprehensive SDK for interacting with SIM wallets.
-
-### Basic Setup
-
-```typescript
-import { SimchainClient } from "./client/simchainClient";
-import { Connection, Keypair } from "@solana/web3.js";
-
-// Create connection
-const connection = new Connection("http://localhost:8899", "confirmed");
-
-// Load or generate wallet
-const wallet = Keypair.generate();
-
-// Initialize client
-const client = new SimchainClient({
-  connection,
-  wallet,
-  programId: new PublicKey("your_program_id_here"),
-  commitment: "confirmed"
-});
-```
-
-### Core Operations
-
-#### 1. Initialize Wallet
-
-```typescript
-// Create a new wallet for a SIM number
-const simNumber = "2348012345678";
-const pin = "1234";
-
-const signature = await client.initializeWallet(simNumber, pin);
-console.log("Wallet created:", signature);
-```
-
-#### 2. Add Funds
-
-```typescript
-// Add funds to a wallet
-const amount = 1.5; // 1.5 SOL
-const signature = await client.addFunds(simNumber, amount);
-console.log("Funds added:", signature);
-```
-
-#### 3. Check Balance
-
-```typescript
-// Get wallet balance
-const balance = await client.checkBalance(simNumber);
-console.log(`Balance: ${balance} SOL`);
-```
-
-#### 4. Send Funds
-
-```typescript
-// Send funds between wallets
-const fromSim = "2348012345678";
-const toSim = "2348098765432";
-const amount = 0.5; // 0.5 SOL
-
-const signature = await client.send(fromSim, toSim, amount);
-console.log("Transfer completed:", signature);
-```
-
-#### 5. Get Wallet Information
-
-```typescript
-// Get complete wallet details
-const [walletPda] = client.deriveWalletPDA(simNumber);
-const walletInfo = await client.program.account.wallet.fetch(walletPda);
-if (walletInfo) {
-  console.log("Owner:", walletInfo.owner.toString());
-  console.log("Balance:", walletInfo.balance, "SOL");
-  console.log("Bump:", walletInfo.bump);
-}
-```
-
-#### 6. Check Wallet Existence
-
-```typescript
-// Check if a wallet exists
-const [walletPda] = client.deriveWalletPDA(simNumber);
-try {
-  await client.program.account.wallet.fetch(walletPda);
-  console.log("Wallet exists: true");
-} catch {
-  console.log("Wallet exists: false");
-}
-```
-
-## 🧪 Testing
-
-Run the comprehensive test suite:
-
-```bash
-# Run all tests
-anchor test
-
-# Run specific test file
-yarn test tests/simchain_wallet.ts
-
-# Validate environment before testing
-yarn validate:env
-```
-
-Run the example usage:
-
-```bash
-# Start local validator
-solana-test-validator
-
-# In another terminal, run the example
-yarn ts-node examples/basic-usage.ts
-```
-
-## 📋 Smart Contract Instructions
-
-### `initialize_wallet`
+### POST `/api/create-wallet`
 Creates a new wallet for a SIM number.
 
-**Parameters:**
-- `sim_number`: String (10-15 characters)
-- `pin_hash`: 32-byte array (SHA-256 hash of PIN)
-
-**Accounts:**
-- `wallet`: PDA derived from SIM number
-- `authority`: Signer paying for account creation
-- `system_program`: System program
-
-### `add_funds`
-Adds funds to a wallet (for testing and initial funding).
-
-**Parameters:**
-- `amount`: f64 (amount in SOL)
-
-**Accounts:**
-- `wallet`: PDA of the wallet
-- `authority`: Signer (wallet owner)
-
-### `check_balance`
-Logs the current balance of a wallet.
-
-**Parameters:** None
-
-**Accounts:**
-- `wallet`: PDA of the wallet
-
-### `send`
-Transfers funds between two wallets.
-
-**Parameters:**
-- `amount`: f64 (amount in SOL)
-
-**Accounts:**
-- `sender_wallet`: PDA of sender wallet
-- `receiver_wallet`: PDA of receiver wallet
-- `owner`: Signer (sender wallet owner)
-
-## 🔧 Development
-
-### Project Structure
-
-```
-SIMChain/
-├── programs/
-│   └── simchain_wallet/     # Rust smart contract
-├── client/
-│   └── simchainClient.ts    # TypeScript client SDK
-├── utils/
-│   ├── env.ts              # Environment validation
-│   └── startup.ts          # Startup validation
-├── scripts/
-│   └── validate-env.ts     # Environment validation script
-├── tests/
-│   └── simchain_wallet.ts   # Integration tests
-├── examples/
-│   └── basic-usage.ts       # Usage examples
-├── env.example             # Environment template
-└── scripts/
-    └── deploy.sh           # Deployment script
+**Request:**
+```json
+{
+  "sim": "+2348012345678",
+  "pin": "MyPin123"
+}
 ```
 
-### Building
-
-```bash
-# Build the program
-anchor build
-
-# Deploy to localnet
-anchor deploy
-
-# Deploy to devnet
-anchor deploy --provider.cluster devnet
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Wallet created ✅",
+  "wallet": "wallet_pda_address"
+}
 ```
 
-### Testing
+### GET `/api/check-balance?sim=+2348012345678`
+Checks the balance of a wallet.
 
-```bash
-# Run tests with local validator
-anchor test
-
-# Run tests on devnet
-anchor test --provider.cluster devnet
-
-# Validate environment
-yarn validate:env
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Balance: 2.1345 SOL",
+  "balance": 2134500000,
+  "formattedBalance": "2.1345"
+}
 ```
 
-## 📊 Account Structure
+### POST `/api/send-funds`
+Sends funds between wallets.
 
-### Wallet Account
+**Request:**
+```json
+{
+  "from_sim": "+2348012345678",
+  "to_sim": "+2348098765432",
+  "amount": "0.1"
+}
+```
 
-```rust
-pub struct wallet {
-    pub sim_number: String,    // SIM number (10-15 chars)
-    pub balance: f64,          // Balance in SOL
-    pub owner: Pubkey,         // Wallet owner
-    pub pin_hash: [u8; 32],    // Hashed PIN
-    pub bump: u8,              // PDA bump
+### POST `/api/set-alias`
+Sets an alias for a wallet.
+
+**Request:**
+```json
+{
+  "sim": "+2348012345678",
+  "alias": "mywallet"
 }
 ```
 
 ## 🔐 Security Features
 
-- **PIN Protection**: All operations require PIN verification
-- **Owner Authorization**: Only wallet owner can send funds
-- **SIM Validation**: SIM numbers must be 10-15 characters
-- **Amount Validation**: All amounts must be positive
-- **Balance Checks**: Prevents insufficient balance transfers
-- **Environment Validation**: Early validation of required environment variables
+### PIN Validation
+- Minimum 8 characters
+- Must contain both letters and numbers
+- SHA256 hashing for secure storage
 
-## 🚀 Deployment
+### Wallet Derivation
+- Uses SIM number + salt for deterministic PDA generation
+- Salt rotation capability for enhanced security
+- Collision-resistant hashing
 
-### Local Development
+### Input Validation
+- SIM number format validation
+- Amount validation and conversion
+- Alias length and uniqueness checks
 
+## 🎯 Demo Mode
+
+The application runs in demo mode by default:
+
+- **No Real Transactions**: All operations are simulated
+- **Mock Responses**: Realistic USSD-style responses
+- **Safe Testing**: No actual blockchain interactions
+- **Demo SIM Numbers**: Use provided test numbers
+
+### Demo SIM Numbers
+- `+2348012345678` - Primary test wallet
+- `+2348098765432` - Secondary test wallet
+
+## 🚀 Production Deployment
+
+### Environment Setup
+1. **Real RPC Endpoint**: Use production Solana RPC
+2. **Program ID**: Deploy SIMChain program to mainnet
+3. **Relayer Keypair**: Secure keypair for transaction signing
+4. **Salt Management**: Implement secure salt rotation
+
+### Security Considerations
+- **HTTPS**: Always use HTTPS in production
+- **Rate Limiting**: Implement API rate limiting
+- **Input Sanitization**: Validate all user inputs
+- **Error Handling**: Graceful error handling and logging
+
+### Scaling
+- **Load Balancing**: Multiple relayer instances
+- **Caching**: Cache frequently accessed data
+- **Monitoring**: Implement health checks and metrics
+
+## 🔗 Integration
+
+### Mobile App Integration
+The USSD interface can be integrated with mobile apps:
+
+```javascript
+// Example mobile app integration
+const response = await fetch('/api/create-wallet', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ sim: userSim, pin: userPin })
+});
+
+const result = await response.json();
+// Display USSD-style response to user
+```
+
+### SMS Gateway Integration
+For real USSD deployment, integrate with SMS gateways:
+
+```javascript
+// Example SMS gateway integration
+const ussdResponse = await processUSSDRequest(userInput);
+await sendSMSResponse(userPhone, ussdResponse);
+```
+
+## 🧪 Testing
+
+### Manual Testing
+1. Start the development server
+2. Navigate to the USSD interface
+3. Test each menu option with demo data
+4. Verify responses match expected format
+
+### Automated Testing
 ```bash
-# Start local validator
-solana-test-validator
-
-# Deploy program
-anchor deploy
-
 # Run tests
-anchor test
+npm test
 
-# Validate environment
-yarn validate:env
+# Run with coverage
+npm run test:coverage
 ```
 
-### Devnet Deployment
+## 📊 Performance
 
-```bash
-# Set cluster to devnet
-solana config set --url devnet
+### Optimization Features
+- **Client-side Validation**: Immediate input validation
+- **Optimistic Updates**: Fast UI responses
+- **Caching**: Smart caching of wallet data
+- **Compression**: Gzip compression for API responses
 
-# Deploy program
-anchor deploy --provider.cluster devnet
-
-# Test on devnet
-anchor test --provider.cluster devnet
-```
-
-## 📝 License
-
-This project is licensed under the MIT License.
+### Monitoring
+- **Response Times**: Track API response times
+- **Error Rates**: Monitor error frequencies
+- **User Metrics**: Track usage patterns
+- **Blockchain Metrics**: Monitor Solana network status
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests
+4. Add tests for new functionality
 5. Submit a pull request
 
-## 📞 Support
+## 📄 License
 
-For support and questions, please open an issue on GitHub. 
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue in the repository
+- Check the documentation
+- Review the API examples
+
+---
+
+**Note**: This is a demo application. For production use, implement proper security measures, error handling, and monitoring. 

@@ -41,8 +41,8 @@ describe("SIMChain Full Suite", () => {
   // Phone numbers - use unique numbers each test run
   const simA = `+1234567890${Date.now() % 1000}`;
   const simB = `+1234567891${Date.now() % 1000}`;
-  const pinA = "123456aB"; // Updated to meet new PIN requirements
-  const pinB = "654321cD"; // Updated to meet new PIN requirements
+  const pinA = "123456"; // Updated to meet new 6-digit PIN requirements
+  const pinB = "654321"; // Updated to meet new 6-digit PIN requirements
 
   // Helper function to reset validator state
   async function resetValidatorState() {
@@ -405,7 +405,7 @@ describe("SIMChain Full Suite", () => {
     it("closes wallet and registry, rent goes to destination", async () => {
       // Create a new wallet for closure
       const simClose = `+1999999999${Date.now() % 1000}`;
-      const pinClose = "ClosePin1";
+      const pinClose = "123789";
       const userClose = Keypair.generate();
       const clientClose = new SimchainClient({
         connection,
@@ -437,25 +437,39 @@ describe("SIMChain Full Suite", () => {
     });
 
     it("verifies MintRegistry space limits (16 mints maximum)", async () => {
+      // Create a fresh registry for this test since the previous test closed it
+      const testUser = Keypair.generate();
+      await connection.requestAirdrop(testUser.publicKey, 5 * LAMPORTS_PER_SOL);
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const testClient = new SimchainClient({
+        connection,
+        wallet: testUser,
+        programId: program.programId,
+      });
+      
+      // Initialize a fresh registry
+      await testClient.initializeRegistry();
+      
       // Get current registry
-      const registry = await clientPayer.getMintRegistry();
+      const registry = await testClient.getMintRegistry();
       const currentMints = registry.approved.length;
       
       // Try to add mints up to the limit
       const mintsToAdd = 16 - currentMints;
       for (let i = 0; i < mintsToAdd; i++) {
         const newMint = Keypair.generate().publicKey;
-        await clientPayer.addMint(newMint);
+        await testClient.addMint(newMint);
       }
       
       // Verify we're at the limit
-      const finalRegistry = await clientPayer.getMintRegistry();
+      const finalRegistry = await testClient.getMintRegistry();
       expect(finalRegistry.approved).to.have.length(16);
       
       // Try to add one more - this should fail due to space constraints
       const extraMint = Keypair.generate().publicKey;
       try {
-        await clientPayer.addMint(extraMint);
+        await testClient.addMint(extraMint);
         expect.fail("Should have thrown due to space constraints");
       } catch (err: any) {
         // The error might be due to account size limits or other constraints
@@ -464,9 +478,32 @@ describe("SIMChain Full Suite", () => {
     });
 
     it("demonstrates alias cleanup after wallet closure", async () => {
+      // Create a fresh registry for this test since the previous test closed it
+      const testUser = Keypair.generate();
+      await connection.requestAirdrop(testUser.publicKey, 5 * LAMPORTS_PER_SOL);
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const testClient = new SimchainClient({
+        connection,
+        wallet: testUser,
+        programId: program.programId,
+      });
+      
+      // Only initialize registry if it doesn't exist
+      let registryExists = false;
+      try {
+        await testClient.getMintRegistry();
+        registryExists = true;
+      } catch (e) {
+        registryExists = false;
+      }
+      if (!registryExists) {
+        await testClient.initializeRegistry();
+      }
+      
       // Create a wallet with an alias
       const simAlias = `+1555555555${Date.now() % 1000}`;
-      const pinAlias = "AliasPin1";
+      const pinAlias = "987654";
       const userAlias = Keypair.generate();
       const clientAlias = new SimchainClient({
         connection,
@@ -479,7 +516,7 @@ describe("SIMChain Full Suite", () => {
       await clientAlias.initializeWallet(simAlias, pinAlias);
       
       // Set an alias
-      const testAlias = "test_alias_123456789012345678901234567890"; // 32 characters
+      const testAlias = "test_alias_12345678901234567890"; // 32 or fewer characters
       await clientAlias.setAlias(simAlias, testAlias);
       
       // Convert string to Uint8Array for PDA derivation
@@ -497,8 +534,11 @@ describe("SIMChain Full Suite", () => {
       const aliasIndexAfterClose = await connection.getAccountInfo(aliasIndexPda);
       expect(aliasIndexAfterClose).to.not.be.null;
       
-      // Close the alias index to free up the alias
-      await clientAlias.closeAliasIndex(testAliasBytes, userAlias.publicKey);
+      // Close the alias index to free up the alias (only if it exists)
+      const aliasIndexBeforeCleanup = await connection.getAccountInfo(aliasIndexPda);
+      if (aliasIndexBeforeCleanup !== null) {
+        await clientAlias.closeAliasIndex(testAliasBytes, userAlias.publicKey);
+      }
       
       // Now the alias index should be closed
       const aliasIndexAfterCleanup = await connection.getAccountInfo(aliasIndexPda);

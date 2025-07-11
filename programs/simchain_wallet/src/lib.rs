@@ -338,8 +338,7 @@ pub mod simchain_wallet {
         pin_hash: [u8; 32],
     ) -> Result<()> {
         no_cpi!(ctx);
-        
-        // Validate PIN strength (basic check)
+        // Only check that pin_hash is not all zeros
         require!(
             pin_hash.iter().any(|&b| b != 0),
             SimchainError::WeakPin

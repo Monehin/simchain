@@ -1,0 +1,48 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model WalletMapping {
+  id            String   @id @default(cuid())
+  simNumber     String   @unique @map("sim_number")
+  walletAddress String   @unique @map("wallet_address")
+  alias         String?  @db.VarChar(12)
+  ownerAddress  String   @map("owner_address")
+  simHash       String   @map("sim_hash") @db.VarChar(66) // 0x + 64 hex chars
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("wallet_mappings")
+}
+
+model AliasHistory {
+  id            String   @id @default(cuid())
+  walletAddress String   @map("wallet_address")
+  oldAlias      String?  @map("old_alias") @db.VarChar(12)
+  newAlias      String?  @map("new_alias") @db.VarChar(12)
+  changedAt     DateTime @default(now()) @map("changed_at")
+  changedBy     String   @map("changed_by") // Could be 'user' or 'admin'
+
+  @@map("alias_history")
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}

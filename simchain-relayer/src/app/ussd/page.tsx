@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { PhoneNormalizer, PinManager, AliasValidator } from '../../lib/simchain-relay-test';
+import { PhoneValidator, PinValidator, AliasValidator } from '../../lib/validation';
 
 interface WalletInfo {
   address: string;
@@ -83,7 +83,7 @@ export default function USSDSimulator() {
     }
 
     try {
-      const normalizedNumber = PhoneNormalizer.normalize(state.mobileNumber);
+      const normalizedNumber = PhoneValidator.normalizePhoneNumber(state.mobileNumber);
       setState(prev => ({ ...prev, mobileNumber: normalizedNumber, isActive: true }));
       startSession(normalizedNumber);
     } catch (error) {
@@ -129,7 +129,39 @@ You are not registered yet.
 
   // Handle PIN validation
   const handlePinValidation = async (pin: string) => {
-    if (!PinManager.validatePin(pin)) {
+    // First validate PIN format
+    if (!PinValidator.validatePin(pin)) {
+      addMessage('❌ PIN must be exactly 6 digits. Try again:');
+      return;
+    }
+
+    // Verify PIN against stored wallet data
+    try {
+      const response = await fetch('/api/relay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'verify-pin',
+          sim: state.mobileNumber,
+          pin
+        })
+      });
+      const result = await response.json();
+      
+      if (!result.success) {
+        const attempts = state.pinAttempts + 1;
+        setState(prev => ({ ...prev, pinAttempts: attempts }));
+        
+        if (attempts >= 3) {
+          addMessage('Session expired. Dial *906# again.');
+          endSession();
+          return;
+        }
+        
+        addMessage(`❌ Incorrect PIN. Try again: (${3 - attempts} attempts left)`);
+        return;
+      }
+    } catch (error) {
       const attempts = state.pinAttempts + 1;
       setState(prev => ({ ...prev, pinAttempts: attempts }));
       
@@ -139,7 +171,7 @@ You are not registered yet.
         return;
       }
       
-      addMessage(`❌ Incorrect PIN. Try again: (${3 - attempts} attempts left)`);
+      addMessage(`❌ Network error. Try again: (${3 - attempts} attempts left)`);
       return;
     }
 
@@ -323,7 +355,7 @@ Select (1-5):
           showWalletAddress();
         } else {
           setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
-          addMessage('Choose a 1-6 character alias (letters & digits):');
+          addMessage('Choose a 2-12 character alias (letters, digits, underscore, hyphen):');
         }
         break;
       case '3':
@@ -617,8 +649,8 @@ ${walletInfo.address}
 
   // Handle alias selection
   const handleAliasSelection = (alias: string) => {
-    if (!AliasValidator.validateAlias(alias) || alias.length > 6) {
-      addMessage('❌ Alias must be 1-6 alphanumeric. Try again:');
+    if (!AliasValidator.validateAlias(alias)) {
+      addMessage('❌ Alias must be 2-12 characters (letters, digits, underscore, hyphen). Try again:');
       return;
     }
     
@@ -641,24 +673,43 @@ Confirm alias "${alias}"?
         addMessage('Setting alias...');
         
         try {
-          // Simulate alias setting
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          setState(prev => ({ 
-            ...prev, 
-            alias: prev.tempData.pendingAlias,
-            currentMenu: 'main'
-          }));
-          addMessage('✅ Alias set.');
-          showMainMenu();
+          // Call the real API to set alias
+          const response = await fetch('/api/relay', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'set-alias',
+              sim: state.mobileNumber,
+              alias: state.tempData.pendingAlias
+            }),
+          });
+
+          const result = await response.json();
+          
+          if (result.success) {
+            setState(prev => ({ 
+              ...prev, 
+              alias: prev.tempData.pendingAlias,
+              currentMenu: 'main'
+            }));
+            addMessage('✅ Alias set successfully!');
+            showMainMenu();
+          } else {
+            addMessage(`❌ ${result.error}`);
+            setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
+          }
         } catch (error) {
-          addMessage('⚠️ Failed to set alias. Try again later.');
+          addMessage('⚠️ Network error. Please try again later.');
+          setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
         }
         
         setIsLoading(false);
         break;
       case '2':
         setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
-        addMessage('Choose a 1-6 character alias (letters & digits):');
+        addMessage('Choose a 2-12 character alias (letters, digits, underscore, hyphen):');
         break;
       default:
         addMessage('❌ Invalid selection. Try again:');

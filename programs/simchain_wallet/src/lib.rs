@@ -610,6 +610,22 @@ pub mod simchain_wallet {
         Ok(())
     }
 
+    /// Validate PIN against stored hash
+    /// 
+    /// # Arguments
+    /// * `pin_hash` - Hash of the PIN to validate
+    pub fn validate_pin(ctx: Context<ValidatePin>, pin_hash: [u8; 32]) -> Result<()> {
+        let wallet = &ctx.accounts.wallet;
+        
+        // Check if the provided PIN hash matches the stored PIN hash
+        require!(
+            wallet.pin_hash == pin_hash,
+            SimchainError::Unauthorized
+        );
+        
+        Ok(())
+    }
+
     /// Check wallet balance (read-only instruction)
     pub fn check_balance(_ctx: Context<CheckBalance>) -> Result<()> {
         // This is a read-only instruction - no state changes
@@ -959,6 +975,13 @@ pub struct ModifyRegistry<'info> {
     /// CHECK: sysvar instructions account
     #[account(address = sysvar::instructions::ID)]
     pub instructions: AccountInfo<'info>,
+}
+
+/// Validate PIN against stored hash
+#[derive(Accounts)]
+pub struct ValidatePin<'info> {
+    #[account(seeds = [b"wallet", &wallet.sim_hash[..]], bump = wallet.bump)]
+    pub wallet: Account<'info, Wallet>,
 }
 
 /// Check wallet balance (view function)

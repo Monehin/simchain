@@ -20,6 +20,7 @@ interface USSDState {
   messages: string[];
   alias: string | null;
   walletAddress: string | null;
+  isAuthenticated: boolean; // Track if user is authenticated without storing PIN
 }
 
 export default function USSDSimulator() {
@@ -34,25 +35,25 @@ export default function USSDSimulator() {
     messages: [],
     alias: null,
     walletAddress: null,
+    isAuthenticated: false,
   });
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Check if wallet exists using the check-balance endpoint
+  // Check if wallet exists using the wallet-exists endpoint
   const checkWalletExists = async (mobileNumber: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/check-balance', {
+      const response = await fetch('/api/wallet-exists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sim: mobileNumber,
-          pin: '000000', // Dummy PIN for existence check
           country: 'RW'
         })
       });
       const result = await response.json();
-      return result.success;
+      return result.success && result.data?.exists;
     } catch (error) {
       console.error('Error checking wallet:', error);
       return false;
@@ -159,7 +160,8 @@ Redirecting to main menu...
               currentMenu: 'main',
               isRegistered: true,
               walletAddress: result.data.walletAddress,
-              alias: result.data.alias
+              alias: result.data.alias,
+              isAuthenticated: true // Mark as authenticated after successful registration
             }));
             showMainMenu();
           }, 3000);
@@ -186,9 +188,9 @@ Redirecting to main menu...
       return;
     }
 
-    // For existing users, verify PIN by trying to get balance
+    // For existing users, verify PIN using the validate-pin endpoint
     try {
-      const response = await fetch('/api/check-balance', {
+      const response = await fetch('/api/validate-pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,7 +201,7 @@ Redirecting to main menu...
       });
       const result = await response.json();
       
-      if (!result.success) {
+      if (!result.success || !result.isValid) {
         const attempts = state.pinAttempts + 1;
         setState(prev => ({ ...prev, pinAttempts: attempts }));
         
@@ -213,13 +215,12 @@ Redirecting to main menu...
         return;
       }
 
-      // PIN is valid, store wallet info and proceed to main menu
+      // PIN is valid, mark as authenticated and proceed to main menu
       setState(prev => ({ 
         ...prev, 
         pinAttempts: 0,
         currentMenu: 'main',
-        walletAddress: result.data.walletAddress,
-        alias: result.data.alias
+        isAuthenticated: true // Mark as authenticated without storing PIN
       }));
       showMainMenu();
     } catch (error) {
@@ -326,6 +327,12 @@ Simchain Mobile Money
 
   // Check balance
   const checkBalance = async () => {
+    if (!state.isAuthenticated) {
+      addMessage('❌ Session expired. Please dial *906# again.');
+      endSession();
+      return;
+    }
+
     setIsLoading(true);
     addMessage('⏳ Checking balance...');
     
@@ -335,7 +342,7 @@ Simchain Mobile Money
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sim: state.mobileNumber,
-          pin: '000000', // We already verified PIN
+          pin: '000000', // Use dummy PIN since user is already authenticated
           country: 'RW'
         })
       });
@@ -345,10 +352,11 @@ Simchain Mobile Money
       if (result.success) {
         const balance = result.data.balance;
         const alias = result.data.alias || 'No alias set';
+        const walletAddress = state.walletAddress || result.data.walletAddress || 'Unknown';
         addMessage(`
 Balance: ${balance.toFixed(4)} SOL
 Alias: ${alias}
-Address: ${result.data.walletAddress.slice(0, 8)}...${result.data.walletAddress.slice(-8)}
+Address: ${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}
 
 Press any key to continue...
         `.trim());
@@ -379,6 +387,12 @@ Press any key to continue...
 
   // Handle send recipient input
   const handleSendRecipient = async (recipient: string) => {
+    if (!state.isAuthenticated) {
+      addMessage('❌ Session expired. Please dial *906# again.');
+      endSession();
+      return;
+    }
+
     setIsLoading(true);
     addMessage('⏳ Sending money...');
     
@@ -390,7 +404,7 @@ Press any key to continue...
           fromSim: state.mobileNumber,
           toSim: recipient,
           amount: state.tempData.sendAmount,
-          pin: '000000', // We already verified PIN
+          pin: '000000', // Use dummy PIN since user is already authenticated
           country: 'RW'
         })
       });
@@ -466,6 +480,12 @@ Press any key to continue...
 
   // Handle alias input
   const handleAliasInput = async (alias: string) => {
+    if (!state.isAuthenticated) {
+      addMessage('❌ Session expired. Please dial *906# again.');
+      endSession();
+      return;
+    }
+
     if (alias.length < 3 || alias.length > 20) {
       addMessage('❌ Alias must be 3-20 characters. Try again:');
       return;
@@ -481,7 +501,7 @@ Press any key to continue...
         body: JSON.stringify({
           sim: state.mobileNumber,
           alias: alias,
-          pin: '000000', // We already verified PIN
+          pin: '000000', // Use dummy PIN since user is already authenticated
           country: 'RW'
         })
       });
@@ -643,7 +663,8 @@ Press any key to continue...
       menuStack: [],
       tempData: {},
       messages: [],
-      pinAttempts: 0
+      pinAttempts: 0,
+      isAuthenticated: false // Clear authentication state
     }));
     addMessage('Session ended. Thank you for using Simchain!');
   };
@@ -664,13 +685,13 @@ Press any key to continue...
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Enter Mobile Number:
               </label>
-              <input
-                type="tel"
-                value={state.mobileNumber}
-                onChange={(e) => setState(prev => ({ ...prev, mobileNumber: e.target.value }))}
-                placeholder="+1234567890"
-                className="w-full p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-              />
+                              <input
+                  type="tel"
+                  value={state.mobileNumber}
+                  onChange={(e) => setState(prev => ({ ...prev, mobileNumber: e.target.value }))}
+                  placeholder="+1234567890"
+                  className="w-full p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none text-gray-900 bg-white"
+                />
               <button
                 onClick={handleDial}
                 className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
@@ -714,7 +735,7 @@ Press any key to continue...
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Enter your choice..."
-                    className="flex-1 p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
+                    className="flex-1 p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none text-gray-900 bg-white"
                     disabled={isLoading}
                   />
                   <button

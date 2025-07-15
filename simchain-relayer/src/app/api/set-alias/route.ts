@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     let result: string;
     try {
-      result = await client.setAlias({ sim, alias, country });
+      result = await client.setAlias({ sim, alias, pin, country });
     } catch (error: unknown) {
       let errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('Simulation failed')) {

@@ -68,13 +68,25 @@ export async function POST(request: NextRequest) {
       if (!walletRecord) {
         return NextResponse.json({ success: false, error: 'Wallet not found for this phone number.' }, { status: 404 });
       }
-      const balanceLamports = await client.checkBalance({ sim, country });
+      
+      // Simple PIN validation - check if PIN matches the expected format
+      // For now, we'll use a simple validation that requires the PIN to be 6 digits
+      // In a real implementation, you would hash and compare against stored PIN
+      if (!PinValidator.validatePin(pin)) {
+        return NextResponse.json({ success: false, error: 'Invalid PIN format' }, { status: 400 });
+      }
+      
+      // TODO: Add proper PIN validation against stored hash
+      // For now, we'll accept any valid 6-digit PIN as a temporary solution
+      
+      const balanceLamports = await client.checkBalance({ sim, pin, country });
       const balance = balanceLamports / 1e9;
       return NextResponse.json({
         success: true,
         data: {
           alias: walletRecord.alias || 'unknown',
-          balance
+          balance,
+          walletAddress: walletRecord.walletAddress
         }
       });
     } catch (error: unknown) {

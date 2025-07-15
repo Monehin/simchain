@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     let result: string;
     try {
-      result = await client.sendFunds({ fromSim, toSim, amount: lamports, fromCountry: country, toCountry: country });
+      result = await client.sendFunds({ fromSim, toSim, amount: lamports, pin, fromCountry: country, toCountry: country });
     } catch (error: unknown) {
       let errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('Simulation failed')) {

@@ -1167,6 +1167,41 @@
       ]
     },
     {
+      "name": "validate_pin",
+      "docs": [
+        "Validate PIN against stored hash",
+        "",
+        "# Arguments",
+        "* `pin_hash` - Hash of the PIN to validate"
+      ],
+      "discriminator": [
+        158,
+        221,
+        44,
+        209,
+        137,
+        167,
+        19,
+        147
+      ],
+      "accounts": [
+        {
+          "name": "wallet"
+        }
+      ],
+      "args": [
+        {
+          "name": "pin_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "withdraw_native",
       "docs": [
         "Withdraw native SOL from a wallet",

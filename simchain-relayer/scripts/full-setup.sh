@@ -58,14 +58,41 @@ wait_for_service() {
     return 1
 }
 
+# Function to extract program ID from deployment
+extract_program_id() {
+    local deploy_output="$1"
+    echo "$deploy_output" | grep "Program Id:" | awk '{print $3}'
+}
+
 # Step 1: Kill all running instances
 print_status "Step 1: Killing all running processes..."
+
 # Kill processes on common project ports
 for port in 3000 3001 3002 8899 8900 9900; do
   lsof -ti :$port | xargs kill -9 2>/dev/null || true
 done
-# Also kill by process name as before
-pkill -f "next\|node\|npm\|yarn\|solana\|anchor" 2>/dev/null || true
+
+# Kill specific development processes
+print_status "Killing development servers..."
+pkill -f "next dev" 2>/dev/null || true
+pkill -f "npm run dev" 2>/dev/null || true
+pkill -f "yarn dev" 2>/dev/null || true
+pkill -f "next-server" 2>/dev/null || true
+
+# Kill Node.js processes (but be careful not to kill editor processes)
+pkill -f "node.*next" 2>/dev/null || true
+pkill -f "node.*npm" 2>/dev/null || true
+
+# Kill Solana and Anchor processes
+pkill -f "solana-test-validator" 2>/dev/null || true
+pkill -f "anchor" 2>/dev/null || true
+
+# Double-check port 3000 is free (common for Next.js dev servers)
+if lsof -i :3000 >/dev/null 2>&1; then
+    print_warning "Port 3000 still in use, force killing..."
+    lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+fi
+
 sleep 3
 print_success "All processes killed"
 
@@ -79,8 +106,15 @@ SIMCHAIN_ROOT=$(pwd)
 RELAYER_DIR="$SIMCHAIN_ROOT/simchain-relayer"
 print_success "Found SIMChain root: $SIMCHAIN_ROOT"
 
-# Step 3: Build the Solana program
+# Step 3: Clean and build the Solana program
 print_program "Step 2: Building Solana program..."
+print_status "Cleaning previous build..."
+anchor clean
+if [ $? -ne 0 ]; then
+    print_warning "Clean failed, continuing anyway..."
+fi
+
+print_status "Building program..."
 anchor build
 if [ $? -eq 0 ]; then
     print_success "Program built successfully"
@@ -105,13 +139,29 @@ fi
 # Step 5: Wait for validator to be ready
 wait_for_service "Solana Validator" "http://localhost:8899" || exit 1
 
-# Step 6: Deploy the program
+# Step 6: Deploy the program and extract program ID
 print_program "Step 4: Deploying program..."
-anchor deploy
+DEPLOY_OUTPUT=$(anchor deploy 2>&1)
 if [ $? -eq 0 ]; then
     print_success "Program deployed successfully"
+    PROGRAM_ID=$(extract_program_id "$DEPLOY_OUTPUT")
+    if [ -n "$PROGRAM_ID" ]; then
+        print_success "Program ID: $PROGRAM_ID"
+        
+        # Update the TypeScript config with the new program ID
+        print_status "Updating TypeScript config with new program ID..."
+        cat > "$RELAYER_DIR/src/config/programId.ts" << EOF
+// simchain-relayer/src/config/programId.ts
+// Centralized program ID for build/runtime use
+export const PROGRAM_ID = '$PROGRAM_ID';
+EOF
+        print_success "TypeScript config updated"
+    else
+        print_warning "Could not extract program ID from deployment output"
+    fi
 else
     print_error "Failed to deploy program"
+    print_error "Deploy output: $DEPLOY_OUTPUT"
     exit 1
 fi
 
@@ -152,13 +202,20 @@ sleep 8
 # Step 9: Wait for relayer to be ready
 wait_for_service "Relayer Server" "http://localhost:3000/api/test-connection" || exit 1
 
-# Step 10: Initialize program
-print_program "Step 8: Initializing program..."
-INIT_RESPONSE=$(curl -s -X POST http://localhost:3000/api/init-program)
-if [[ $INIT_RESPONSE == *"success"* ]]; then
-    print_success "Program initialized successfully"
+# Step 10: Test connection and verify program ID
+print_program "Step 8: Testing connection and verifying program ID..."
+CONNECTION_RESPONSE=$(curl -s http://localhost:3000/api/test-connection)
+if [[ $CONNECTION_RESPONSE == *"success"* ]]; then
+    print_success "Connection test successful"
+    # Extract and verify program ID
+    RESPONSE_PROGRAM_ID=$(echo "$CONNECTION_RESPONSE" | grep -o '"programId":"[^"]*"' | cut -d'"' -f4)
+    if [ "$RESPONSE_PROGRAM_ID" = "$PROGRAM_ID" ]; then
+        print_success "Program ID verified: $RESPONSE_PROGRAM_ID"
+    else
+        print_warning "Program ID mismatch. Expected: $PROGRAM_ID, Got: $RESPONSE_PROGRAM_ID"
+    fi
 else
-    print_error "Failed to initialize program: $INIT_RESPONSE"
+    print_error "Connection test failed: $CONNECTION_RESPONSE"
     exit 1
 fi
 
@@ -299,9 +356,10 @@ echo
 echo "📋 Component Status:"
 echo "✅ Solana Validator: Running (PID: $VALIDATOR_PID)"
 echo "✅ Solana Program: Built and deployed"
+echo "✅ Program ID: $PROGRAM_ID"
 echo "✅ Relayer Server: Running (PID: $SERVER_PID)"
 echo "✅ Database: Reset and ready"
-echo "✅ Program: Initialized"
+echo "✅ TypeScript Config: Updated"
 echo
 echo "🌐 Access Points:"
 echo "- Relayer Admin: http://localhost:3000/admin"

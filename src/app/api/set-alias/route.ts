@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connection, programId } from '@/lib/solana';
 import { deriveWalletPDA, deriveAliasIndexPDA } from '@/lib/sim-utils';
+import { SimchainClient } from '../../../utils/simchainClient';
 
 export async function POST(request: NextRequest) {
   try {

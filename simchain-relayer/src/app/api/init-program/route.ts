@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { SimchainClient } from '../../../lib/simchain-client';
 
-export async function GET() {
+export async function POST() {
   try {
-    console.log('Starting test connection...');
-    
     // Initialize the real blockchain client
     const rpcEndpoint = process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899';
     const programId = new PublicKey(process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r');
-    
-    console.log('RPC endpoint and programId created');
     
     // Create a wallet keypair from the private key
     const privateKeyString = process.env.WALLET_PRIVATE_KEY;
@@ -24,43 +20,62 @@ export async function GET() {
     const privateKeyBytes = Uint8Array.from(JSON.parse(privateKeyString));
     const wallet = Keypair.fromSecretKey(privateKeyBytes);
     
-    console.log('Wallet keypair created');
-    
-    console.log('Creating SimchainClient with @solana/kit...');
     const client = new SimchainClient({
       connection: { rpcEndpoint },
       programId,
       wallet,
       commitment: 'confirmed'
     });
-    
-    console.log('SimchainClient created successfully');
 
-    // Test the connection using @solana/kit
+    // Test connection first
     const isConnected = await client.testConnection();
-    
     if (!isConnected) {
       return NextResponse.json(
-        { success: false, error: 'Connection failed' },
+        { success: false, error: 'Failed to connect to Solana cluster' },
         { status: 500 }
       );
     }
 
-    // Get program accounts count to demonstrate @solana/kit functionality
-    const programAccountsCount = await client.getProgramAccounts();
+    // Initialize config account
+    let configSignature: string;
+    try {
+      configSignature = await client.initializeConfig();
+      console.log('Config initialized with signature:', configSignature);
+    } catch (error: unknown) {
+      console.error('Config initialization failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Config initialization failed';
+      return NextResponse.json(
+        { success: false, error: errorMessage },
+        { status: 400 }
+      );
+    }
+
+    // Initialize registry account
+    let registrySignature: string;
+    try {
+      registrySignature = await client.initializeRegistry();
+      console.log('Registry initialized with signature:', registrySignature);
+    } catch (error: unknown) {
+      console.error('Registry initialization failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Registry initialization failed';
+      return NextResponse.json(
+        { success: false, error: errorMessage },
+        { status: 400 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
       data: {
-        connected: isConnected,
-        programId: programId.toBase58(),
-        programAccountsCount,
+        message: 'Program initialized successfully',
+        configSignature,
+        registrySignature,
         client: '@solana/kit'
       }
     });
     
   } catch (error: unknown) {
-    console.error('Test connection failed:', error);
+    console.error('Program initialization failed:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
       { success: false, error: errorMessage },

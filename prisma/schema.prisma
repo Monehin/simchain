@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Phone number hash mapping to wallet addresses
+model PhoneWalletMapping {
+  id          String   @id @default(cuid())
+  phoneHash   String   @unique // SHA256 hash of the phone number
+  phoneNumber String   // Original phone number (encrypted in production)
+  walletAddress String @unique // Solana wallet address (PDA)
+  simHash     String   // The sim_hash stored in the on-chain wallet
+  country     String   @default("RW") // Country code
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
+  
+  // Relationships
+  transactions Transaction[]
+  
+  @@map("phone_wallet_mappings")
+  @@index([phoneHash])
+  @@index([walletAddress])
+  @@index([country])
+}
+
+// Transaction history for audit trail
+model Transaction {
+  id            String   @id @default(cuid())
+  signature     String   @unique // Solana transaction signature
+  type          TransactionType
+  fromWallet    String?  // Sender wallet address
+  toWallet      String?  // Receiver wallet address
+  amount        BigInt   // Amount in lamports
+  status        TransactionStatus @default(PENDING)
+  phoneWalletMappingId String?
+  phoneWalletMapping PhoneWalletMapping? @relation(fields: [phoneWalletMappingId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("transactions")
+  @@index([signature])
+  @@index([type])
+  @@index([status])
+  @@index([phoneWalletMappingId])
+}
+
+// Alias mappings for quick lookup
+model AliasMapping {
+  id            String   @id @default(cuid())
+  alias         String   @unique // User-defined alias
+  walletAddress String   // Solana wallet address
+  phoneHash     String   // Phone hash for quick lookup
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  isActive      Boolean  @default(true)
+  
+  @@map("alias_mappings")
+  @@index([alias])
+  @@index([walletAddress])
+  @@index([phoneHash])
+}
+
+// System configuration and metadata
+model SystemConfig {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("system_configs")
+}
+
+enum TransactionType {
+  WALLET_CREATION
+  DEPOSIT
+  WITHDRAWAL
+  TRANSFER
+  ALIAS_SET
+}
+
+enum TransactionStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  CANCELLED
+} 

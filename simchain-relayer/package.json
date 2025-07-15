@@ -13,14 +13,16 @@
     "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.31.1",
     "@prisma/client": "^6.11.1",
+    "@solana/kit": "^2.3.0",
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.2",
+    "google-libphonenumber": "^3.2.42",
     "next": "15.3.5",
     "prisma": "^6.11.1",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

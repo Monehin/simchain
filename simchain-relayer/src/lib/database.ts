@@ -1,184 +1,228 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma';
+import { PhoneEncryption } from './encryption';
+import { AliasGenerator } from './alias-generator';
 
+// Global Prisma client instance
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
 
-export interface WalletMappingData {
-  simNumber: string;
+export interface CreateWalletData {
+  sim: string;
   walletAddress: string;
-  ownerAddress: string;
-  simHash: string;
+  country?: string;
+  customAlias?: string; // Optional custom alias, will generate if not provided
+}
+
+export interface UpdateWalletData {
   alias?: string;
+  lastBalance?: number;
 }
 
-export interface AliasUpdateData {
+export interface WalletRecord {
+  id: string;
+  encryptedSim: string;
   walletAddress: string;
-  oldAlias?: string;
-  newAlias?: string;
-  changedBy: string;
+  country: string;
+  currentAlias: string;
+  lastBalance?: number | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export class DatabaseService {
+export class WalletDatabase {
   /**
-   * Create a new wallet mapping
+   * Create a new encrypted wallet record
    */
-  static async createWalletMapping(data: WalletMappingData) {
+  static async createWallet(data: CreateWalletData): Promise<WalletRecord> {
     try {
-      return await prisma.walletMapping.create({
-        data: {
-          simNumber: data.simNumber,
-          walletAddress: data.walletAddress,
-          ownerAddress: data.ownerAddress,
-          simHash: data.simHash,
-          alias: data.alias,
-        },
-      });
-    } catch (error) {
-      console.error('Error creating wallet mapping:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get wallet mapping by SIM number
-   */
-  static async getWalletBySimNumber(simNumber: string) {
-    try {
-      return await prisma.walletMapping.findUnique({
-        where: { simNumber },
-      });
-    } catch (error) {
-      console.error('Error getting wallet by SIM number:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get wallet mapping by wallet address
-   */
-  static async getWalletByAddress(walletAddress: string) {
-    try {
-      return await prisma.walletMapping.findUnique({
-        where: { walletAddress },
-      });
-    } catch (error) {
-      console.error('Error getting wallet by address:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Update wallet alias
-   */
-  static async updateWalletAlias(walletAddress: string, newAlias: string, changedBy: string = 'user') {
-    try {
-      // Get current wallet mapping
-      const wallet = await prisma.walletMapping.findUnique({
-        where: { walletAddress },
-      });
-
-      if (!wallet) {
-        throw new Error('Wallet not found');
+      // Validate phone number
+      if (!PhoneEncryption.validatePhoneNumber(data.sim)) {
+        throw new Error('Invalid phone number format');
       }
 
-      // Start a transaction
-      return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        // Update the wallet mapping
-        const updatedWallet = await tx.walletMapping.update({
-          where: { walletAddress },
-          data: { alias: newAlias },
-        });
+      // Encrypt the phone number
+      const encryptedSim = PhoneEncryption.encrypt(data.sim);
+      
+      // Create hash for lookup
+      const simHash = PhoneEncryption.createHash(data.sim);
 
-        // Record the alias change in history
-        await tx.aliasHistory.create({
-          data: {
-            walletAddress,
-            oldAlias: wallet.alias,
-            newAlias,
-            changedBy,
-          },
-        });
-
-        return updatedWallet;
+      // Check if wallet already exists
+      const existingWallet = await prisma.encryptedWallet.findUnique({
+        where: { walletAddress: data.walletAddress }
       });
-    } catch (error) {
-      console.error('Error updating wallet alias:', error);
-      throw error;
-    }
-  }
 
-  /**
-   * Get all wallet mappings (for admin)
-   */
-  static async getAllWallets() {
-    try {
-      return await prisma.walletMapping.findMany({
-        orderBy: { createdAt: 'desc' },
+      if (existingWallet) {
+        throw new Error('Wallet already exists');
+      }
+
+      // Generate or validate alias
+      let finalAlias: string;
+      if (data.customAlias) {
+        // Validate custom alias format
+        const validation = AliasGenerator.validateAliasFormat(data.customAlias);
+        if (!validation.isValid) {
+          throw new Error(validation.error || 'Invalid alias format');
+        }
+
+        // Check if custom alias is available
+        const isAvailable = await AliasGenerator.isAliasAvailable(data.customAlias);
+        if (!isAvailable) {
+          throw new Error('Alias is already taken');
+        }
+
+        finalAlias = data.customAlias;
+      } else {
+        // Generate unique alias
+        finalAlias = await AliasGenerator.generateUniqueAlias();
+      }
+
+      // Create the wallet record
+      const wallet = await prisma.encryptedWallet.create({
+        data: {
+          encryptedSim,
+          simHash,
+          walletAddress: data.walletAddress,
+          country: data.country || 'RW',
+          currentAlias: finalAlias,
+          lastBalance: 0
+        }
       });
-    } catch (error) {
-      console.error('Error getting all wallets:', error);
-      throw error;
-    }
-  }
 
-  /**
-   * Get wallet count
-   */
-  static async getWalletCount() {
-    try {
-      return await prisma.walletMapping.count();
-    } catch (error) {
-      console.error('Error getting wallet count:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Check if alias is already in use
-   */
-  static async isAliasInUse(alias: string) {
-    try {
-      const existing = await prisma.walletMapping.findFirst({
-        where: { alias },
+      // Create initial alias history record
+      await prisma.aliasHistory.create({
+        data: {
+          walletId: wallet.id,
+          oldAlias: null, // No previous alias for new wallet
+          newAlias: finalAlias
+        }
       });
-      return !!existing;
+
+      return wallet;
     } catch (error) {
-      console.error('Error checking alias usage:', error);
+      console.error('Failed to create wallet record:', error);
       throw error;
     }
   }
 
   /**
-   * Get alias history for a wallet
+   * Find wallet by phone number hash
    */
-  static async getAliasHistory(walletAddress: string) {
+  static async findWalletBySim(sim: string): Promise<WalletRecord | null> {
     try {
-      return await prisma.aliasHistory.findMany({
+      // Validate phone number
+      if (!PhoneEncryption.validatePhoneNumber(sim)) {
+        throw new Error('Invalid phone number format');
+      }
+
+      // Create hash for lookup (consistent)
+      const simHash = PhoneEncryption.createHash(sim);
+
+      const wallet = await prisma.encryptedWallet.findFirst({
+        where: { simHash }
+      });
+
+      return wallet;
+    } catch (error) {
+      console.error('Failed to find wallet by SIM:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Find wallet by wallet address
+   */
+  static async findWalletByAddress(walletAddress: string): Promise<WalletRecord | null> {
+    try {
+      const wallet = await prisma.encryptedWallet.findUnique({
+        where: { walletAddress }
+      });
+
+      return wallet;
+    } catch (error) {
+      console.error('Failed to find wallet by address:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update wallet information
+   */
+  static async updateWallet(walletAddress: string, data: UpdateWalletData): Promise<WalletRecord> {
+    try {
+      const wallet = await prisma.encryptedWallet.update({
         where: { walletAddress },
-        orderBy: { changedAt: 'desc' },
+        data
       });
+
+      return wallet;
     } catch (error) {
-      console.error('Error getting alias history:', error);
+      console.error('Failed to update wallet:', error);
       throw error;
     }
   }
 
   /**
-   * Delete wallet mapping (for cleanup)
+   * Update wallet alias by phone number
    */
-  static async deleteWalletMapping(walletAddress: string) {
+  static async updateWalletAlias(sim: string, alias: string): Promise<WalletRecord> {
     try {
-      return await prisma.walletMapping.delete({
-        where: { walletAddress },
+      // Find wallet by phone number hash
+      const simHash = PhoneEncryption.createHash(sim);
+      
+      const wallet = await prisma.encryptedWallet.update({
+        where: { simHash },
+        data: { currentAlias: alias }
       });
+
+      return wallet;
     } catch (error) {
-      console.error('Error deleting wallet mapping:', error);
+      console.error('Failed to update wallet alias:', error);
       throw error;
+    }
+  }
+
+  // Transaction recording removed - using audit logs instead
+
+  /**
+   * Check if a phone number is already registered
+   */
+  static async isPhoneNumberRegistered(sim: string): Promise<boolean> {
+    try {
+      const wallet = await this.findWalletBySim(sim);
+      return wallet !== null;
+    } catch (error) {
+      console.error('Failed to check phone number registration:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get wallet statistics
+   */
+  static async getWalletStats() {
+    try {
+      const totalWallets = await prisma.encryptedWallet.count();
+      const totalErrors = await prisma.errorLog.count();
+
+      return {
+        totalWallets,
+        totalErrors,
+        errorRate: totalWallets > 0 ? (totalErrors / totalWallets) * 100 : 0
+      };
+    } catch (error) {
+      console.error('Failed to get wallet stats:', error);
+      return {
+        totalWallets: 0,
+        totalErrors: 0,
+        errorRate: 0
+      };
     }
   }
 } 

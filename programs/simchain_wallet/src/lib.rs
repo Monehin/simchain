@@ -431,14 +431,14 @@ pub mod simchain_wallet {
 
     /// Close alias index PDA and reclaim rent
     /// This should be called after closing a wallet to free up the alias
-    pub fn close_alias_index(ctx: Context<CloseAliasIndex>) -> Result<()> {
+    pub fn close_alias_index(ctx: Context<CloseAliasIndex>, alias: [u8; 32]) -> Result<()> {
         no_cpi!(ctx);
         let alias_index = &ctx.accounts.alias_index;
         let _rent_reclaimed = alias_index.to_account_info().lamports();
         
         emit!(AliasCleared {
             wallet: alias_index.wallet,
-            alias: [0u8; 32], // We don't have the original alias here, but the event is still useful
+            alias, // Now we have the original alias for the event
         });
         
         Ok(())

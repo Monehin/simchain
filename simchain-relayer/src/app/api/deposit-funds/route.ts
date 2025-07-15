@@ -1,31 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import { SimchainClient } from '../../../lib/simchain-client';
-import { PinValidator } from '../../../lib/validation';
-import { ErrorLogger } from '../../../lib/audit-log';
 import { WalletDatabase } from '../../../lib/database';
 
 export async function POST(request: NextRequest) {
   try {
-    const { sim, pin, alias, country = 'RW' } = await request.json();
+    const { sim, amount, country = 'RW' } = await request.json();
     
-    if (!sim || !pin || !alias) {
+    if (!sim || !amount) {
       return NextResponse.json(
-        { success: false, error: 'SIM number, PIN, and alias are required' },
-        { status: 400 }
-      );
-    }
-    
-    if (!PinValidator.validatePin(pin)) {
-      return NextResponse.json(
-        { success: false, error: 'PIN must be exactly 6 digits' },
+        { success: false, error: 'SIM number and amount are required' },
         { status: 400 }
       );
     }
 
-    if (alias.length > 32 || alias.length === 0) {
+    if (amount <= 0) {
       return NextResponse.json(
-        { success: false, error: 'Alias must be between 1 and 32 characters' },
+        { success: false, error: 'Amount must be greater than 0' },
+        { status: 400 }
+      );
+    }
+
+    // Convert SOL to lamports (1 SOL = 1,000,000,000 lamports)
+    const lamports = Math.floor(amount * 1_000_000_000);
+    
+    if (lamports <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Amount is too small (minimum 0.000000001 SOL)' },
         { status: 400 }
       );
     }
@@ -52,54 +53,41 @@ export async function POST(request: NextRequest) {
       commitment: 'confirmed'
     });
 
+    // Check if wallet exists in the database before deposit
+    const walletRecord = await WalletDatabase.findWalletBySim(sim);
+    if (!walletRecord) {
+      return NextResponse.json({ success: false, error: 'Wallet not found for this phone number.' }, { status: 404 });
+    }
+
     let result: string;
     try {
-      result = await client.setAlias({ sim, alias, country });
+      result = await client.depositFunds({ sim, amount: lamports, country });
     } catch (error: unknown) {
       let errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('Simulation failed')) {
         if (errorMessage.includes('already in use')) {
-          errorMessage = 'Alias already in use.';
+          errorMessage = 'Deposit failed: account already exists or is in use.';
         } else {
-          errorMessage = 'Failed to set alias. Please try again or contact support.';
+          errorMessage = 'Deposit failed: check details or contact support.';
         }
       }
       return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
     }
     
-    // Store alias in database
-    try {
-      await WalletDatabase.updateWalletAlias(sim, alias);
-    } catch (dbError) {
-      console.error('Failed to store alias in database:', dbError);
-      // Log the database error
-      await ErrorLogger.logAliasSetError(sim, alias, dbError instanceof Error ? dbError.message : 'Database error', 'DB_ERROR', {
-        signature: result
-      });
-      // Don't fail the request if database storage fails
-      // The blockchain transaction was successful
-    }
+    // Fund deposit successful - no need to log success
 
-    // Alias set successfully - no need to log success
-
-    let aliasResult: string = alias;
-    try {
-      const walletRecord = await WalletDatabase.findWalletBySim(sim);
-      if (walletRecord) {
-        aliasResult = walletRecord.currentAlias;
-      }
-    } catch {}
     return NextResponse.json({
       success: true,
       data: {
-        message: 'Alias set successfully',
-        alias: aliasResult,
+        message: 'Funds deposited successfully',
+        alias: walletRecord.currentAlias,
+        amount,
         signature: result
       }
     });
     
   } catch (error: unknown) {
-    console.error('Set alias failed:', error);
+    console.error('Deposit funds failed:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal server error';
     return NextResponse.json(
       { success: false, error: errorMessage },

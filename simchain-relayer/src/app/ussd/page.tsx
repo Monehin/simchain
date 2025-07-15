@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { PhoneValidator, PinValidator, AliasValidator } from '../../lib/validation';
+import { useState } from 'react';
 
 interface WalletInfo {
   address: string;
   balance: number;
   exists: boolean;
+  alias?: string;
 }
 
 interface USSDState {
@@ -16,9 +16,10 @@ interface USSDState {
   pinAttempts: number;
   currentMenu: string;
   menuStack: string[];
-  tempData: any;
+  tempData: Record<string, unknown>;
   messages: string[];
   alias: string | null;
+  walletAddress: string | null;
 }
 
 export default function USSDSimulator() {
@@ -32,48 +33,33 @@ export default function USSDSimulator() {
     tempData: {},
     messages: [],
     alias: null,
+    walletAddress: null,
   });
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Simulate wallet existence check
-  const checkWalletExists = async (mobileNumber: string) => {
+  // Check if wallet exists using the check-balance endpoint
+  const checkWalletExists = async (mobileNumber: string): Promise<boolean> => {
     try {
-      const response = await fetch('/api/relay', {
+      const response = await fetch('/api/check-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'wallet-exists',
-          sim: mobileNumber
+          sim: mobileNumber,
+          pin: '000000', // Dummy PIN for existence check
+          country: 'RW'
         })
       });
       const result = await response.json();
-      return result.success && result.data?.exists;
+      return result.success;
     } catch (error) {
       console.error('Error checking wallet:', error);
       return false;
     }
   };
 
-  // Simulate wallet info fetch
-  const getWalletInfo = async (mobileNumber: string) => {
-    try {
-      const response = await fetch('/api/relay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'wallet-info',
-          sim: mobileNumber
-        })
-      });
-      const result = await response.json();
-      return result.success ? result.data : null;
-    } catch (error) {
-      console.error('Error getting wallet info:', error);
-      return null;
-    }
-  };
+
 
   // Handle dial code
   const handleDial = () => {
@@ -82,13 +68,15 @@ export default function USSDSimulator() {
       return;
     }
 
-    try {
-      const normalizedNumber = PhoneValidator.normalizePhoneNumber(state.mobileNumber);
-      setState(prev => ({ ...prev, mobileNumber: normalizedNumber, isActive: true }));
-      startSession(normalizedNumber);
-    } catch (error) {
+    // Basic phone number validation
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(state.mobileNumber.replace(/\s/g, ''))) {
       addMessage('❌ Invalid mobile number format');
+      return;
     }
+
+    setState(prev => ({ ...prev, mobileNumber: state.mobileNumber, isActive: true }));
+    startSession(state.mobileNumber);
   };
 
   // Start USSD session
@@ -129,77 +117,36 @@ You are not registered yet.
 
   // Handle PIN validation
   const handlePinValidation = async (pin: string) => {
-    // First validate PIN format
-    if (!PinValidator.validatePin(pin)) {
+    // Validate PIN format
+    if (!/^\d{6}$/.test(pin)) {
       addMessage('❌ PIN must be exactly 6 digits. Try again:');
       return;
     }
 
-    // Verify PIN against stored wallet data
-    try {
-      const response = await fetch('/api/relay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'verify-pin',
-          sim: state.mobileNumber,
-          pin
-        })
-      });
-      const result = await response.json();
-      
-      if (!result.success) {
-        const attempts = state.pinAttempts + 1;
-        setState(prev => ({ ...prev, pinAttempts: attempts }));
-        
-        if (attempts >= 3) {
-          addMessage('Session expired. Dial *906# again.');
-          endSession();
-          return;
-        }
-        
-        addMessage(`❌ Incorrect PIN. Try again: (${3 - attempts} attempts left)`);
-        return;
-      }
-    } catch (error) {
-      const attempts = state.pinAttempts + 1;
-      setState(prev => ({ ...prev, pinAttempts: attempts }));
-      
-      if (attempts >= 3) {
-        addMessage('Session expired. Dial *906# again.');
-        endSession();
-        return;
-      }
-      
-      addMessage(`❌ Network error. Try again: (${3 - attempts} attempts left)`);
-      return;
-    }
-
-    // If in registration, call real on-chain registration
+    // If in registration, create wallet
     if (state.currentMenu === 'register_pin') {
       setIsLoading(true);
       addMessage('⏳ Registering wallet on-chain...');
+      
       try {
-        const response = await fetch('/api/relay', {
+        const response = await fetch('/api/create-wallet', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'initialize-wallet',
             sim: state.mobileNumber,
-            pin
+            pin: pin,
+            country: 'RW'
           })
         });
         const result = await response.json();
         setIsLoading(false);
         
-        if (result.success && result.data && result.data.success) {
-          // Show success message with transaction signature
-          const txSig = result.data.signature;
-          const shortTx = txSig ? `${txSig.slice(0, 4)}...${txSig.slice(-4)}` : '';
+        if (result.success) {
           addMessage(`
 ✅ Registration successful!
 Wallet created on-chain.
-Transaction: ${shortTx}
+Address: ${result.data.walletAddress.slice(0, 8)}...${result.data.walletAddress.slice(-8)}
+Alias: ${result.data.alias}
 
 Redirecting to main menu...
           `.trim());
@@ -210,13 +157,14 @@ Redirecting to main menu...
               ...prev,
               pinAttempts: 0,
               currentMenu: 'main',
-              isRegistered: true
+              isRegistered: true,
+              walletAddress: result.data.walletAddress,
+              alias: result.data.alias
             }));
             showMainMenu();
           }, 3000);
         } else {
-          // Show user-friendly error message
-          const errorMsg = result.data?.error?.message || result.error || 'Unknown error';
+          const errorMsg = result.error || 'Unknown error';
           let userFriendlyError = '⚠️ Registration failed.';
           
           if (errorMsg.includes('already exists')) {
@@ -238,94 +186,108 @@ Redirecting to main menu...
       return;
     }
 
-    // PIN is valid, proceed to main menu (existing user)
-    setState(prev => ({ 
-      ...prev, 
-      pinAttempts: 0,
-      currentMenu: 'main'
-    }));
-    showMainMenu();
+    // For existing users, verify PIN by trying to get balance
+    try {
+      const response = await fetch('/api/check-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sim: state.mobileNumber,
+          pin: pin,
+          country: 'RW'
+        })
+      });
+      const result = await response.json();
+      
+      if (!result.success) {
+        const attempts = state.pinAttempts + 1;
+        setState(prev => ({ ...prev, pinAttempts: attempts }));
+        
+        if (attempts >= 3) {
+          addMessage('Session expired. Dial *906# again.');
+          endSession();
+          return;
+        }
+        
+        addMessage(`❌ Incorrect PIN. Try again: (${3 - attempts} attempts left)`);
+        return;
+      }
+
+      // PIN is valid, store wallet info and proceed to main menu
+      setState(prev => ({ 
+        ...prev, 
+        pinAttempts: 0,
+        currentMenu: 'main',
+        walletAddress: result.data.walletAddress,
+        alias: result.data.alias
+      }));
+      showMainMenu();
+    } catch (error) {
+      const attempts = state.pinAttempts + 1;
+      setState(prev => ({ ...prev, pinAttempts: attempts }));
+      
+      if (attempts >= 3) {
+        addMessage('Session expired. Dial *906# again.');
+        endSession();
+        return;
+      }
+      
+      addMessage(`❌ Network error. Try again: (${3 - attempts} attempts left)`);
+    }
   };
 
   // Show main menu
-  const showMainMenu = async () => {
-    // Check if alias exists
-    const walletInfo = await getWalletInfo(state.mobileNumber);
-    const hasAlias = walletInfo?.alias && walletInfo.alias !== '00000000000000000000000000000000';
-    
-    setState(prev => ({ ...prev, alias: hasAlias ? walletInfo.alias : null }));
-
-    if (hasAlias) {
-      setState(prev => ({
-        ...prev,
-        messages: [`
-Simchain Main Menu:
-1. Wallets
-2. View Address
-3. Services
-4. Exit
-Select (1-4):
-        `.trim()]
-      }));
-    } else {
-      setState(prev => ({
-        ...prev,
-        messages: [`
-Simchain Main Menu:
-1. Wallets
-2. Set Alias
-3. View Address
-4. Services
-5. Exit
-Select (1-5):
-        `.trim()]
-      }));
-    }
+  const showMainMenu = () => {
+    setState(prev => ({
+      ...prev,
+      messages: [`
+Simchain Mobile Money
+1. Check Balance
+2. Send Money
+3. Deposit Money
+4. Set Alias
+5. Services
+6. Help
+0. Exit
+    `.trim()]
+    }));
   };
 
   // Handle menu selection
   const handleMenuSelection = (selection: string) => {
-    const currentMenu = state.currentMenu;
-    
-    switch (currentMenu) {
-      case 'registration':
-        handleRegistrationSelection(selection);
+    switch (selection) {
+      case '1':
+        handleMainMenuSelection('balance');
         break;
-      case 'main':
-        handleMainMenuSelection(selection);
+      case '2':
+        handleMainMenuSelection('send');
         break;
-      case 'wallets':
-        handleWalletSelection(selection);
+      case '3':
+        handleMainMenuSelection('deposit');
         break;
-      case 'wallet_detail':
-        handleWalletDetailSelection(selection);
+      case '4':
+        handleMainMenuSelection('alias');
         break;
-      case 'services':
-        handleServicesSelection(selection);
+      case '5':
+        handleMainMenuSelection('services');
         break;
-      case 'set_alias':
-        handleAliasSelection(selection);
+      case '6':
+        handleMainMenuSelection('help');
         break;
-      case 'send_amount':
-        handleSendAmount(selection);
-        break;
-      case 'send_recipient':
-        handleSendRecipient(selection);
-        break;
-      case 'deposit_amount':
-        handleDepositAmount(selection);
+      case '0':
+        endSession();
         break;
       default:
         addMessage('❌ Invalid selection. Try again:');
     }
   };
 
-  // Handle registration menu
+  // Handle registration selection
   const handleRegistrationSelection = (selection: string) => {
     switch (selection) {
       case '1':
         setState(prev => ({ ...prev, currentMenu: 'register_pin' }));
-        addMessage('Enter your 6-digit PIN:');
+        addMessage('Enter a 6-digit PIN for your wallet:');
         break;
       case '2':
         endSession();
@@ -335,175 +297,75 @@ Select (1-5):
     }
   };
 
-  // Handle main menu
-  const handleMainMenuSelection = (selection: string) => {
-    const hasAlias = state.alias !== null;
-    const maxOptions = hasAlias ? 4 : 5;
-    
-    if (selection === maxOptions.toString()) {
-      endSession();
-      return;
-    }
-
-    switch (selection) {
-      case '1':
-        setState(prev => ({ ...prev, currentMenu: 'wallets' }));
-        showWalletMenu();
+  // Handle main menu selection
+  const handleMainMenuSelection = (action: string) => {
+    switch (action) {
+      case 'balance':
+        checkBalance();
         break;
-      case '2':
-        if (hasAlias) {
-          showWalletAddress();
-        } else {
-          setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
-          addMessage('Choose a 2-12 character alias (letters, digits, underscore, hyphen):');
-        }
-        break;
-      case '3':
-        if (hasAlias) {
-          setState(prev => ({ ...prev, currentMenu: 'services' }));
-          showServicesMenu();
-        } else {
-          showWalletAddress();
-        }
-        break;
-      case '4':
-        if (hasAlias) {
-          endSession();
-        } else {
-          setState(prev => ({ ...prev, currentMenu: 'services' }));
-          showServicesMenu();
-        }
-        break;
-      case '5':
-        if (!hasAlias) {
-          endSession();
-        }
-        break;
-      default:
-        addMessage('❌ Invalid selection. Try again:');
-    }
-  };
-
-  // Show wallet menu
-  const showWalletMenu = () => {
-    setState(prev => ({
-      ...prev,
-      messages: [`
-Wallets:
-1. SOL
-2. USDC
-3. SIM
-4. Back
-Select (1-4):
-      `.trim()]
-    }));
-  };
-
-  // Handle wallet selection
-  const handleWalletSelection = (selection: string) => {
-    switch (selection) {
-      case '1':
-      case '2':
-      case '3':
-        const tokens = ['SOL', 'USDC', 'SIM'];
-        const token = tokens[parseInt(selection) - 1];
-        setState(prev => ({ 
-          ...prev, 
-          currentMenu: 'wallet_detail',
-          tempData: { ...prev.tempData, selectedToken: token }
-        }));
-        showWalletDetailMenu(token);
-        break;
-      case '4':
-        setState(prev => ({ ...prev, currentMenu: 'main' }));
-        showMainMenu();
-        break;
-      default:
-        addMessage('❌ Invalid selection. Try again:');
-    }
-  };
-
-  // Show wallet detail menu
-  const showWalletDetailMenu = (token: string) => {
-    const menu = `
-${token} Wallet:
-1. Check Balance
-2. Send ${token}
-3. Deposit ${token}
-${token === 'SOL' ? '4. Convert to Fiat' : ''}
-${token === 'SOL' ? '5' : '4'}. Back
-Select (1-${token === 'SOL' ? '5' : '4'}):
-    `.trim();
-    addMessage(menu);
-  };
-
-  // Handle wallet detail selection
-  const handleWalletDetailSelection = (selection: string) => {
-    const token = state.tempData.selectedToken;
-    const maxOptions = token === 'SOL' ? 5 : 4;
-
-    if (selection === maxOptions.toString()) {
-      setState(prev => ({ ...prev, currentMenu: 'wallets' }));
-      showWalletMenu();
-      return;
-    }
-
-    switch (selection) {
-      case '1':
-        checkBalance(token);
-        break;
-      case '2':
+      case 'send':
         setState(prev => ({ ...prev, currentMenu: 'send_amount' }));
-        addMessage(`Enter amount to send (${token}):`);
+        addMessage('Enter amount to send (SOL):');
         break;
-      case '3':
+      case 'deposit':
         setState(prev => ({ ...prev, currentMenu: 'deposit_amount' }));
-        addMessage(`Enter amount to deposit (${token}):`);
+        addMessage('Enter amount to deposit (SOL):');
         break;
-      case '4':
-        if (token === 'SOL') {
-          convertToFiat();
-        }
+      case 'alias':
+        setState(prev => ({ ...prev, currentMenu: 'alias_input' }));
+        addMessage('Enter your preferred alias:');
         break;
-      default:
-        addMessage('❌ Invalid selection. Try again:');
+      case 'services':
+        showServicesMenu();
+        break;
+      case 'help':
+        showHelp();
+        break;
     }
   };
 
   // Check balance
-  const checkBalance = async (token: string) => {
+  const checkBalance = async () => {
     setIsLoading(true);
-    addMessage('Checking balance...');
+    addMessage('⏳ Checking balance...');
     
     try {
-      const response = await fetch('/api/relay', {
+      const response = await fetch('/api/check-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'wallet-balance',
-          sim: state.mobileNumber
+          sim: state.mobileNumber,
+          pin: '000000', // We already verified PIN
+          country: 'RW'
         })
       });
       const result = await response.json();
+      setIsLoading(false);
       
       if (result.success) {
-        addMessage(`Your ${token} balance is ${result.data.balance} ${token}`);
+        const balance = result.data.balance;
+        const alias = result.data.alias || 'No alias set';
+        addMessage(`
+Balance: ${balance.toFixed(4)} SOL
+Alias: ${alias}
+Address: ${result.data.walletAddress.slice(0, 8)}...${result.data.walletAddress.slice(-8)}
+
+Press any key to continue...
+        `.trim());
       } else {
-        addMessage(`⚠️ Failed to get ${token} balance`);
+        addMessage('❌ Failed to check balance. Please try again.');
       }
     } catch (error) {
-      addMessage('⚠️ Transaction failed. Try again later.');
+      setIsLoading(false);
+      addMessage('❌ Network error. Please try again.');
     }
-    
-    setIsLoading(false);
-    showWalletDetailMenu(token);
   };
 
-  // Handle send amount
+  // Handle send amount input
   const handleSendAmount = (amount: string) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      addMessage('❌ Invalid amount. Try again:');
+      addMessage('❌ Invalid amount. Enter a positive number:');
       return;
     }
     
@@ -512,67 +374,150 @@ Select (1-${token === 'SOL' ? '5' : '4'}):
       currentMenu: 'send_recipient',
       tempData: { ...prev.tempData, sendAmount: numAmount }
     }));
-    addMessage('Enter recipient phone number or alias:');
+    addMessage('Enter recipient phone number:');
   };
 
-  // Handle send recipient
+  // Handle send recipient input
   const handleSendRecipient = async (recipient: string) => {
     setIsLoading(true);
-    addMessage('Sending transaction...');
+    addMessage('⏳ Sending money...');
     
     try {
-      // Simulate send transaction
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      addMessage(`✅ Sent ${state.tempData.sendAmount} ${state.tempData.selectedToken} to ${recipient}`);
+      const response = await fetch('/api/send-funds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromSim: state.mobileNumber,
+          toSim: recipient,
+          amount: state.tempData.sendAmount,
+          pin: '000000', // We already verified PIN
+          country: 'RW'
+        })
+      });
+      const result = await response.json();
+      setIsLoading(false);
+      
+      if (result.success) {
+        addMessage(`
+✅ Money sent successfully!
+Amount: ${state.tempData.sendAmount} SOL
+To: ${recipient}
+Transaction: ${result.data.signature.slice(0, 8)}...${result.data.signature.slice(-8)}
+
+Press any key to continue...
+        `.trim());
+      } else {
+        addMessage(`❌ Send failed: ${result.error || 'Unknown error'}`);
+      }
     } catch (error) {
-      addMessage('⚠️ Transaction failed. Try again later.');
+      setIsLoading(false);
+      addMessage('❌ Network error. Please try again.');
     }
     
-    setIsLoading(false);
-    showWalletDetailMenu(state.tempData.selectedToken);
+    setState(prev => ({ 
+      ...prev, 
+      currentMenu: 'main',
+      tempData: {}
+    }));
   };
 
-  // Handle deposit amount
+  // Handle deposit amount input
   const handleDepositAmount = async (amount: string) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
-      addMessage('❌ Invalid amount. Try again:');
+      addMessage('❌ Invalid amount. Enter a positive number:');
       return;
     }
     
     setIsLoading(true);
-    addMessage('Processing deposit...');
+    addMessage('⏳ Depositing money...');
     
     try {
-      // Simulate deposit transaction
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      addMessage(`✅ Deposited ${numAmount} ${state.tempData.selectedToken}`);
+      const response = await fetch('/api/deposit-funds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sim: state.mobileNumber,
+          amount: numAmount,
+          country: 'RW'
+        })
+      });
+      const result = await response.json();
+      setIsLoading(false);
+      
+      if (result.success) {
+        addMessage(`
+✅ Money deposited successfully!
+Amount: ${numAmount} SOL
+Transaction: ${result.data.signature.slice(0, 8)}...${result.data.signature.slice(-8)}
+
+Press any key to continue...
+        `.trim());
+      } else {
+        addMessage(`❌ Deposit failed: ${result.error || 'Unknown error'}`);
+      }
     } catch (error) {
-      addMessage('⚠️ Transaction failed. Try again later.');
+      setIsLoading(false);
+      addMessage('❌ Network error. Please try again.');
     }
     
-    setIsLoading(false);
-    showWalletDetailMenu(state.tempData.selectedToken);
+    setState(prev => ({ ...prev, currentMenu: 'main' }));
   };
 
-  // Convert to fiat
-  const convertToFiat = () => {
-    const rate = 50; // Simulated exchange rate
-    const amount = state.tempData.sendAmount || 1;
-    const fiatAmount = amount * rate;
-    addMessage(`💱 ${amount} SOL = $${fiatAmount.toFixed(2)} USD`);
-    showWalletDetailMenu('SOL');
+  // Handle alias input
+  const handleAliasInput = async (alias: string) => {
+    if (alias.length < 3 || alias.length > 20) {
+      addMessage('❌ Alias must be 3-20 characters. Try again:');
+      return;
+    }
+    
+    setIsLoading(true);
+    addMessage('⏳ Setting alias...');
+    
+    try {
+      const response = await fetch('/api/set-alias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sim: state.mobileNumber,
+          alias: alias,
+          pin: '000000', // We already verified PIN
+          country: 'RW'
+        })
+      });
+      const result = await response.json();
+      setIsLoading(false);
+      
+      if (result.success) {
+        addMessage(`
+✅ Alias set successfully!
+New alias: ${alias}
+
+Press any key to continue...
+        `.trim());
+        setState(prev => ({ ...prev, alias: alias }));
+      } else {
+        addMessage(`❌ Failed to set alias: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      setIsLoading(false);
+      addMessage('❌ Network error. Please try again.');
+    }
+    
+    setState(prev => ({ ...prev, currentMenu: 'main' }));
   };
 
   // Show services menu
   const showServicesMenu = () => {
-    addMessage(`
-Services:
+    setState(prev => ({
+      ...prev,
+      messages: [`
+Services
 1. Health Check
-2. Help
-3. Back
-Select (1-3):
-    `.trim());
+2. Back to Main Menu
+0. Exit
+    `.trim()]
+    }));
   };
 
   // Handle services selection
@@ -582,11 +527,11 @@ Select (1-3):
         performHealthCheck();
         break;
       case '2':
-        showHelp();
-        break;
-      case '3':
         setState(prev => ({ ...prev, currentMenu: 'main' }));
         showMainMenu();
+        break;
+      case '0':
+        endSession();
         break;
       default:
         addMessage('❌ Invalid selection. Try again:');
@@ -596,149 +541,92 @@ Select (1-3):
   // Perform health check
   const performHealthCheck = async () => {
     setIsLoading(true);
-    addMessage('Checking system health...');
+    addMessage('⏳ Performing health check...');
     
     try {
-      const response = await fetch('/api/relay', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'health-check' })
-      });
+      const response = await fetch('/api/test-connection');
       const result = await response.json();
+      setIsLoading(false);
       
       if (result.success) {
-        addMessage('✅ System healthy - Connected to Simchain network');
+        addMessage(`
+✅ System Status: Healthy
+Validator: Connected
+Program: Deployed
+Program ID: ${result.data.programId.slice(0, 8)}...${result.data.programId.slice(-8)}
+
+Press any key to continue...
+        `.trim());
       } else {
-        addMessage('⚠️ System health check failed');
+        addMessage('❌ System Status: Unhealthy');
       }
     } catch (error) {
-      addMessage('⚠️ Health check failed. Try again later.');
+      setIsLoading(false);
+      addMessage('❌ Health check failed');
     }
-    
-    setIsLoading(false);
-    showServicesMenu();
   };
 
   // Show help
   const showHelp = () => {
-    addMessage(`
-📞 Simchain USSD Help:
-• Dial *906# to start
-• Use 6-digit PIN for security
-• Set alias for easy transfers
-• Support: support@simchain.com
-• Emergency: +1234567890
-    `.trim());
-    showServicesMenu();
-  };
+    setState(prev => ({
+      ...prev,
+      messages: [`
+Help & Support
+- Dial *906# to access Simchain
+- PIN must be 6 digits
+- Keep your PIN secure
+- Contact support for issues
 
-  // Show wallet address
-  const showWalletAddress = async () => {
-    const walletInfo = await getWalletInfo(state.mobileNumber);
-    if (walletInfo) {
-      addMessage(`
-Your wallet address:
-${walletInfo.address}
-
-0. Main Menu
-      `.trim());
-    } else {
-      addMessage('⚠️ Failed to get wallet address');
-    }
-  };
-
-  // Handle alias selection
-  const handleAliasSelection = (alias: string) => {
-    if (!AliasValidator.validateAlias(alias)) {
-      addMessage('❌ Alias must be 2-12 characters (letters, digits, underscore, hyphen). Try again:');
-      return;
-    }
-    
-    setState(prev => ({ 
-      ...prev, 
-      currentMenu: 'alias_confirm',
-      tempData: { ...prev.tempData, pendingAlias: alias }
+Press any key to continue...
+    `.trim()]
     }));
-    addMessage(`
-Confirm alias "${alias}"?
-1. Yes   2. No
-    `.trim());
   };
 
-  // Handle alias confirmation
-  const handleAliasConfirmation = async (selection: string) => {
-    switch (selection) {
-      case '1':
-        setIsLoading(true);
-        addMessage('Setting alias...');
-        
-        try {
-          // Call the real API to set alias
-          const response = await fetch('/api/relay', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              action: 'set-alias',
-              sim: state.mobileNumber,
-              alias: state.tempData.pendingAlias
-            }),
-          });
-
-          const result = await response.json();
-          
-          if (result.success) {
-            setState(prev => ({ 
-              ...prev, 
-              alias: prev.tempData.pendingAlias,
-              currentMenu: 'main'
-            }));
-            addMessage('✅ Alias set successfully!');
-            showMainMenu();
-          } else {
-            addMessage(`❌ ${result.error}`);
-            setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
-          }
-        } catch (error) {
-          addMessage('⚠️ Network error. Please try again later.');
-          setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
-        }
-        
-        setIsLoading(false);
-        break;
-      case '2':
-        setState(prev => ({ ...prev, currentMenu: 'set_alias' }));
-        addMessage('Choose a 2-12 character alias (letters, digits, underscore, hyphen):');
-        break;
-      default:
-        addMessage('❌ Invalid selection. Try again:');
-    }
-  };
-
-  // Handle input submission
+  // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
-
-    if (state.currentMenu === 'pin' || state.currentMenu === 'register_pin') {
-      handlePinValidation(input);
-    } else if (state.currentMenu === 'alias_confirm') {
-      handleAliasConfirmation(input);
-    } else if (state.currentMenu === 'set_alias') {
-      handleAliasSelection(input);
-    } else if (state.currentMenu === 'send_amount' || state.currentMenu === 'deposit_amount') {
-      handleMenuSelection(input);
-    } else if (state.currentMenu === 'send_recipient') {
-      handleSendRecipient(input);
-    } else {
-      handleMenuSelection(input);
-    }
-
+    
+    if (isLoading) return;
+    
+    const trimmedInput = input.trim();
+    if (!trimmedInput) return;
+    
     setInput('');
+    
+    switch (state.currentMenu) {
+      case 'pin':
+      case 'register_pin':
+        handlePinValidation(trimmedInput);
+        break;
+      case 'registration':
+        handleRegistrationSelection(trimmedInput);
+        break;
+      case 'main':
+        handleMenuSelection(trimmedInput);
+        break;
+      case 'send_amount':
+        handleSendAmount(trimmedInput);
+        break;
+      case 'send_recipient':
+        handleSendRecipient(trimmedInput);
+        break;
+      case 'deposit_amount':
+        handleDepositAmount(trimmedInput);
+        break;
+      case 'alias_input':
+        handleAliasInput(trimmedInput);
+        break;
+      case 'services':
+        handleServicesSelection(trimmedInput);
+        break;
+      default:
+        // Continue to main menu for any other input
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
+        showMainMenu();
+    }
   };
 
-  // Add message to display
+  // Add message to the conversation
   const addMessage = (message: string) => {
     setState(prev => ({
       ...prev,
@@ -746,118 +634,119 @@ Confirm alias "${alias}"?
     }));
   };
 
-  // End session
+  // End USSD session
   const endSession = () => {
-    addMessage(`
-Thank you for using Simchain!
-Goodbye.
-    `.trim());
     setState(prev => ({
       ...prev,
       isActive: false,
       currentMenu: 'dial',
       menuStack: [],
       tempData: {},
+      messages: [],
       pinAttempts: 0
     }));
+    addMessage('Session ended. Thank you for using Simchain!');
   };
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    const messagesDiv = document.getElementById('messages');
-    if (messagesDiv) {
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-  }, [state.messages]);
-
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-md mx-auto">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Header */}
-          <div className="bg-green-600 text-white p-4">
-            <h1 className="text-xl font-bold">📱 SIMChain USSD Simulator</h1>
-            <p className="text-sm opacity-90">Dial *906# to start</p>
+          <div className="bg-blue-600 text-white p-4">
+            <h1 className="text-xl font-bold">USSD Simulator</h1>
+            <p className="text-sm opacity-90">Simchain Mobile Money</p>
           </div>
 
-          {/* Mobile Number Input */}
+          {/* Phone Number Input */}
           {!state.isActive && (
             <div className="p-4 border-b">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mobile Number
+                Enter Mobile Number:
               </label>
               <input
                 type="tel"
                 value={state.mobileNumber}
                 onChange={(e) => setState(prev => ({ ...prev, mobileNumber: e.target.value }))}
                 placeholder="+1234567890"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
+                className="w-full p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
               />
-            </div>
-          )}
-
-          {/* Dial Button */}
-          {!state.isActive && (
-            <div className="p-4 border-b">
               <button
                 onClick={handleDial}
-                disabled={!state.mobileNumber.trim()}
-                className="w-full bg-green-600 text-white py-3 px-4 rounded-md font-medium hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
               >
-                📞 Dial *906#
+                Dial *906#
               </button>
             </div>
           )}
 
-          {/* USSD Messages */}
-          <div 
-            id="messages"
-            className="h-96 overflow-y-auto p-4 bg-gray-50 font-mono text-sm text-gray-900"
-          >
-            {state.messages.map((message, index) => (
-              <div key={index} className="mb-2 whitespace-pre-wrap text-gray-900">
-                {message}
-              </div>
-            ))}
-            {isLoading && (
-              <div className="text-gray-500">
-                ⏳ Processing...
-              </div>
-            )}
-          </div>
-
-          {/* Input Field */}
+          {/* USSD Session */}
           {state.isActive && (
-            <div className="p-4 border-t bg-white">
-              <form onSubmit={handleSubmit} className="flex gap-2">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Enter your selection..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 text-gray-900 bg-white"
-                  disabled={isLoading}
-                  autoFocus
-                />
+            <>
+              {/* Session Info */}
+              <div className="p-4 bg-gray-50 border-b">
+                <div className="text-sm text-gray-600">
+                  <p><strong>Number:</strong> {state.mobileNumber}</p>
+                  <p><strong>Status:</strong> {state.isRegistered ? 'Registered' : 'New User'}</p>
+                  {state.walletAddress && (
+                    <p><strong>Wallet:</strong> {state.walletAddress.slice(0, 8)}...{state.walletAddress.slice(-8)}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="p-4 h-96 overflow-y-auto bg-black text-green-400 font-mono text-sm">
+                {state.messages.map((message, index) => (
+                  <div key={index} className="mb-2 whitespace-pre-line">
+                    {message}
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="text-yellow-400">⏳ Processing...</div>
+                )}
+              </div>
+
+              {/* Input */}
+              <form onSubmit={handleSubmit} className="p-4 border-t">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Enter your choice..."
+                    className="flex-1 p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    Send
+                  </button>
+                </div>
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={endSession}
+                  className="mt-2 w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors"
                 >
-                  {isLoading ? '⏳' : 'Send'}
+                  End Session
                 </button>
               </form>
-            </div>
+            </>
           )}
+        </div>
 
-          {/* Session Info */}
-          {state.isActive && (
-            <div className="p-4 bg-gray-50 text-xs text-gray-600 border-t">
-              <div>📱 {state.mobileNumber}</div>
-              <div>🔐 {state.isRegistered ? 'Registered' : 'New User'}</div>
-              {state.alias && <div>🏷️ Alias: {state.alias}</div>}
-            </div>
-          )}
+        {/* Instructions */}
+        <div className="mt-4 bg-white rounded-lg shadow p-4">
+          <h3 className="font-semibold text-gray-800 mb-2">Instructions:</h3>
+          <ul className="text-sm text-gray-600 space-y-1">
+            <li>• Enter a mobile number and click "Dial *906#"</li>
+            <li>• For new users: Register with a 6-digit PIN</li>
+            <li>• For existing users: Enter your PIN</li>
+            <li>• Navigate menus using number keys (1, 2, 3, etc.)</li>
+            <li>• Use "0" to exit or go back</li>
+          </ul>
         </div>
       </div>
     </div>

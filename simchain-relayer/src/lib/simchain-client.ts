@@ -27,6 +27,7 @@ export interface SendFundsParams {
   fromSim: string;
   toSim: string;
   amount: number;
+  pin: string;
   fromCountry: string;
   toCountry: string;
 }
@@ -34,11 +35,19 @@ export interface SendFundsParams {
 export interface SetAliasParams {
   sim: string;
   alias: string;
+  pin: string;
   country: string;
 }
 
 export interface CheckBalanceParams {
   sim: string;
+  pin: string;
+  country: string;
+}
+
+export interface ValidatePinParams {
+  sim: string;
+  pin: string;
   country: string;
 }
 
@@ -341,7 +350,7 @@ export class SimchainClient {
   // Send funds with actual blockchain transaction
   async sendFunds(params: SendFundsParams): Promise<string> {
     try {
-      const { fromSim, toSim, amount } = params;
+      const { fromSim, toSim, amount, pin } = params;
       
       // Validate inputs
       if (!PhoneNormalizer.validate(fromSim)) {
@@ -350,6 +359,10 @@ export class SimchainClient {
       
       if (!PhoneNormalizer.validate(toSim)) {
         throw new Error('Invalid to phone number format');
+      }
+
+      if (!PinValidator.validatePin(pin)) {
+        throw new Error('Invalid PIN format');
       }
 
       // Create PDAs
@@ -424,7 +437,7 @@ export class SimchainClient {
   // Set alias with actual blockchain transaction
   async setAlias(params: SetAliasParams): Promise<string> {
     try {
-      const { sim, alias } = params;
+      const { sim, alias, pin } = params;
       
       // Validate inputs
       if (!PhoneNormalizer.validate(sim)) {
@@ -433,6 +446,10 @@ export class SimchainClient {
       
       if (!AliasValidator.validateAlias(alias)) {
         throw new Error('Invalid alias format');
+      }
+
+      if (!PinValidator.validatePin(pin)) {
+        throw new Error('Invalid PIN format');
       }
 
       // Create wallet PDA
@@ -504,11 +521,15 @@ export class SimchainClient {
   // Check balance using @solana/kit RPC
   async checkBalance(params: CheckBalanceParams): Promise<number> {
     try {
-      const { sim } = params;
+      const { sim, pin } = params;
       
       // Validate inputs
       if (!PhoneNormalizer.validate(sim)) {
         throw new Error('Invalid phone number format');
+      }
+
+      if (!PinValidator.validatePin(pin)) {
+        throw new Error('Invalid PIN format');
       }
 
       // Create wallet PDA
@@ -521,14 +542,88 @@ export class SimchainClient {
       ).send();
       
       if (!accountResponse.value) {
-        return 0; // Account doesn't exist, balance is 0
+        throw new Error('Wallet not found');
       }
+      
+      // TODO: The Solana program should validate the PIN on-chain
+      // For now, we only validate PIN format (6 digits)
+      // In a production system, the program would verify the PIN against the stored hash
+      // and reject the transaction if the PIN is incorrect
       
       // Return the lamports as balance
       return Number(accountResponse.value.lamports);
     } catch (error) {
       console.error('Check balance failed:', error);
       throw error;
+    }
+  }
+
+  // Validate PIN against stored hash on-chain
+  async validatePin(params: ValidatePinParams): Promise<boolean> {
+    try {
+      const { sim, pin } = params;
+      
+      // Validate inputs
+      if (!PhoneNormalizer.validate(sim)) {
+        throw new Error('Invalid phone number format');
+      }
+
+      if (!PinValidator.validatePin(pin)) {
+        throw new Error('Invalid PIN format');
+      }
+
+      // Create wallet PDA
+      const [walletPDA] = await this.createWalletPDA(sim);
+      
+      // Get account info to check if wallet exists
+      const accountResponse = await this.rpc.getAccountInfo(
+        address(walletPDA.toBase58()),
+        { encoding: 'base64' }
+      ).send();
+      
+      if (!accountResponse.value) {
+        throw new Error('Wallet not found');
+      }
+      
+      // Hash the PIN
+      const pinHash = createHash('sha256').update(pin).digest();
+      
+      // Create the validate_pin instruction using @solana/web3.js
+      const connection = new Connection(this.config.connection.rpcEndpoint, 'confirmed');
+      const transaction = new Transaction();
+      
+      // Add validate_pin instruction
+      const instructionData = Buffer.concat([
+        Buffer.from([158, 221, 44, 209, 137, 167, 19, 147]), // validate_pin discriminator
+        pinHash // 32 bytes
+      ]);
+
+      transaction.add({
+        programId: this.config.programId,
+        keys: [
+          { pubkey: walletPDA, isSigner: false, isWritable: false },
+        ],
+        data: instructionData
+      });
+
+      // Get recent blockhash and sign transaction
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = this.wallet.publicKey;
+      
+      // Sign and send transaction
+      transaction.sign(this.wallet);
+      const signature = await connection.sendTransaction(transaction, [this.wallet]);
+      
+      // Wait for confirmation
+      await connection.confirmTransaction(signature, 'confirmed');
+
+      // If we get here, PIN is valid
+      return true;
+    } catch (error) {
+      // If the transaction fails, the PIN is invalid
+      console.error('PIN validation failed:', error);
+      return false;
     }
   }
 
@@ -786,6 +881,28 @@ export class SimchainClient {
         error: {
           message: error instanceof Error ? error.message : 'Unknown error',
           code: 'SET_ALIAS_FAILED'
+        }
+      };
+    }
+  }
+
+  // Validate PIN relay method for API compatibility
+  async validatePinRelay(sim: string, pin: string, country: string): Promise<RelayResult<{ isValid: boolean }>> {
+    try {
+      const isValid = await this.validatePin({ sim, pin, country });
+      
+      return {
+        success: true,
+        data: {
+          isValid
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          code: 'VALIDATE_PIN_FAILED'
         }
       };
     }

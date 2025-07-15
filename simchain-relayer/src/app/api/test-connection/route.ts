@@ -1,49 +1,84 @@
 import { NextResponse } from 'next/server';
-import { Keypair } from '@solana/web3.js';
-import { connection, programId } from '../../../lib/solana';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { SimchainClient } from '../../../lib/simchain-client';
+import { PROGRAM_ID } from '@/config/programId';
 
 export async function GET() {
   try {
-    // Create a temporary keypair for testing
-    const testWallet = Keypair.generate();
+    console.log('Starting test connection...');
     
-    // Test connection by requesting a small airdrop
-    const airdropSig = await connection.requestAirdrop(testWallet.publicKey, 1000000); // 0.001 SOL
-    await connection.confirmTransaction(airdropSig);
+    // Initialize the real blockchain client
+    const rpcEndpoint = process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899';
+    const programId = new PublicKey(PROGRAM_ID);
     
-    // Create SIMChain client
+    console.log('RPC endpoint and programId created');
+    
+    // Create a wallet keypair from the private key
+    const privateKeyString = process.env.WALLET_PRIVATE_KEY;
+    if (!privateKeyString) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet private key not configured' },
+        { status: 500 }
+      );
+    }
+    
+    const privateKeyBytes = Uint8Array.from(JSON.parse(privateKeyString));
+    const wallet = Keypair.fromSecretKey(privateKeyBytes);
+    
+    console.log('Wallet keypair created');
+    
+    console.log('Creating SimchainClient with @solana/kit...');
     const client = new SimchainClient({
-      connection,
-      wallet: testWallet,
+      connection: { rpcEndpoint },
       programId,
+      wallet,
+      commitment: 'confirmed'
     });
     
-    // Test program connection
-    const programInfo = await client.getProgramInfo();
+    console.log('SimchainClient created successfully');
+
+    // Test the connection using @solana/kit
+    const isConnected = await client.testConnection();
     
-    // Test wallet PDA derivation
-    const testSim = '+1234567890';
-    const [walletPda] = await client.deriveWalletPDA(testSim);
-    
-    return NextResponse.json({ 
+    if (!isConnected) {
+      return NextResponse.json(
+        { success: false, error: 'Connection failed' },
+        { status: 500 }
+      );
+    }
+
+    // Check if the program exists on the blockchain
+    let programExists = false;
+    try {
+      const connection = new Connection(rpcEndpoint, 'confirmed');
+      const programInfo = await connection.getAccountInfo(programId);
+      programExists = programInfo !== null;
+      console.log('Program exists check:', programExists);
+    } catch (error) {
+      console.error('Error checking program existence:', error);
+      programExists = false;
+    }
+
+    // Get program accounts count to demonstrate @solana/kit functionality
+    const programAccountsCount = await client.getProgramAccounts();
+
+    return NextResponse.json({
       success: true,
-      message: 'Connection to local validator and SIMChain program successful',
       data: {
-        validatorConnected: true,
-        programId: programInfo.programId,
-        programExists: programInfo.exists,
-        testWalletPda: walletPda.toBase58(),
-        testSim: testSim
+        connected: isConnected,
+        programId: programId.toBase58(),
+        programExists,
+        programAccountsCount,
+        client: '@solana/kit'
       }
     });
-
+    
   } catch (error: unknown) {
-    console.error('Connection test failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Connection test failed';
-    return NextResponse.json({ 
-      success: false,
-      error: errorMessage 
-    }, { status: 500 });
+    console.error('Test connection failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    );
   }
 } 

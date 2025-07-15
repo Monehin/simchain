@@ -32,9 +32,16 @@ export default function AdminPage() {
       const response = await fetch('/api/test-connection');
       const data = await response.json();
       
+      console.log('Connection check response:', data);
+      
       if (data.success) {
         setConnectionStatus({
-          connected: true,
+          connected: data.data.connected,
+          programId: data.data.programId,
+          programExists: data.data.programExists
+        });
+        console.log('Connection status set:', {
+          connected: data.data.connected,
           programId: data.data.programId,
           programExists: data.data.programExists
         });
@@ -45,7 +52,8 @@ export default function AdminPage() {
           programExists: false
         });
       }
-    } catch {
+    } catch (error) {
+      console.error('Connection check error:', error);
       setConnectionStatus({
         connected: false,
         programId: 'Unknown',
@@ -80,11 +88,16 @@ export default function AdminPage() {
       w.address.toLowerCase().includes(search.toLowerCase()) ||
       w.alias.toLowerCase().includes(search.toLowerCase()) ||
       w.simHash.toLowerCase().includes(search.toLowerCase()) ||
+      formatSimHash(w.simHash).toLowerCase().includes(search.toLowerCase()) ||
       w.owner.toLowerCase().includes(search.toLowerCase())
   );
 
   const formatAddress = (address: string) => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  };
+
+  const formatSimHash = (simHash: string) => {
+    return `${simHash.slice(0, 8)}...${simHash.slice(-8)}`;
   };
 
   if (loading) {
@@ -133,6 +146,13 @@ export default function AdminPage() {
                 </span>
               </div>
             )}
+            <button
+              onClick={checkConnection}
+              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+              title="Refresh connection status"
+            >
+              🔄 Refresh Status
+            </button>
             <div className="text-sm text-gray-600">
               Total Wallets: {wallets.length}
             </div>
@@ -202,7 +222,16 @@ export default function AdminPage() {
                     <span className="text-gray-900 font-semibold">{w.balance.toFixed(4)} SOL</span>
                   </td>
                   <td className="py-4 px-6">
-                    <span className="text-gray-600 font-mono text-sm">{w.simHash}</span>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-gray-600 font-mono text-sm">{formatSimHash(w.simHash)}</span>
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(w.simHash)}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                        title="Copy full SIM hash"
+                      >
+                        📋
+                      </button>
+                    </div>
                   </td>
                   <td className="py-4 px-6">
                     <div className="flex space-x-2">

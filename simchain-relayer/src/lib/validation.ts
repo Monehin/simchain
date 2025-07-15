@@ -1,3 +1,5 @@
+import * as crypto from 'crypto';
+
 export class PhoneValidator {
   static normalizePhoneNumber(phone: string): string {
     // Remove all non-digit characters except +
@@ -37,11 +39,8 @@ export class PinValidator {
       throw new Error('PIN must be exactly 6 digits');
     }
 
-    // Use crypto.subtle.digest for SHA-256 hashing
-    const encoder = new TextEncoder();
-    const data = encoder.encode(pin);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    return new Uint8Array(hashBuffer);
+    // Use Node.js crypto for SHA-256 hashing
+    return Uint8Array.from(crypto.createHash('sha256').update(pin).digest());
   }
 }
 

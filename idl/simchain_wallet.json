@@ -1,0 +1,1800 @@
+{
+  "accounts": [
+    {
+      "discriminator": [
+        122,
+        40,
+        47,
+        157,
+        153,
+        82,
+        76,
+        31
+      ],
+      "name": "AliasIndex"
+    },
+    {
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ],
+      "name": "Config"
+    },
+    {
+      "discriminator": [
+        253,
+        5,
+        199,
+        161,
+        2,
+        189,
+        45,
+        165
+      ],
+      "name": "MintRegistry"
+    },
+    {
+      "discriminator": [
+        24,
+        89,
+        59,
+        139,
+        81,
+        154,
+        232,
+        95
+      ],
+      "name": "Wallet"
+    }
+  ],
+  "address": "DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r",
+  "errors": [
+    {
+      "code": 6000,
+      "msg": "Invalid amount",
+      "name": "InvalidAmount"
+    },
+    {
+      "code": 6001,
+      "msg": "Insufficient balance",
+      "name": "InsufficientBalance"
+    },
+    {
+      "code": 6002,
+      "msg": "Unauthorized",
+      "name": "Unauthorized"
+    },
+    {
+      "code": 6003,
+      "msg": "Weak PIN",
+      "name": "WeakPin"
+    },
+    {
+      "code": 6004,
+      "msg": "CPI not allowed",
+      "name": "CpiNotAllowed"
+    },
+    {
+      "code": 6005,
+      "msg": "Mint not approved in registry",
+      "name": "MintNotApproved"
+    },
+    {
+      "code": 6006,
+      "msg": "Invalid alias",
+      "name": "InvalidAlias"
+    },
+    {
+      "code": 6007,
+      "msg": "Alias already exists",
+      "name": "AliasAlreadyExists"
+    },
+    {
+      "code": 6008,
+      "msg": "Invalid salt length",
+      "name": "InvalidSaltLength"
+    },
+    {
+      "code": 6009,
+      "msg": "Wallet count overflow",
+      "name": "WalletCountOverflow"
+    },
+    {
+      "code": 6010,
+      "msg": "Wallet count underflow",
+      "name": "WalletCountUnderflow"
+    },
+    {
+      "code": 6011,
+      "msg": "Mint already approved",
+      "name": "MintAlreadyApproved"
+    }
+  ],
+  "events": [
+    {
+      "discriminator": [
+        255,
+        147,
+        182,
+        5,
+        199,
+        217,
+        38,
+        179
+      ],
+      "name": "AdminTransferred"
+    },
+    {
+      "discriminator": [
+        175,
+        53,
+        185,
+        75,
+        34,
+        95,
+        38,
+        71
+      ],
+      "name": "AliasCleared"
+    },
+    {
+      "discriminator": [
+        182,
+        66,
+        14,
+        219,
+        233,
+        220,
+        149,
+        180
+      ],
+      "name": "AliasSet"
+    },
+    {
+      "discriminator": [
+        210,
+        138,
+        51,
+        240,
+        62,
+        95,
+        100,
+        96
+      ],
+      "name": "HealthCheckEvent"
+    },
+    {
+      "discriminator": [
+        15,
+        37,
+        223,
+        254,
+        230,
+        151,
+        165,
+        171
+      ],
+      "name": "MintAdded"
+    },
+    {
+      "discriminator": [
+        200,
+        118,
+        132,
+        83,
+        101,
+        248,
+        123,
+        2
+      ],
+      "name": "NativeTransfer"
+    },
+    {
+      "discriminator": [
+        144,
+        138,
+        62,
+        105,
+        58,
+        38,
+        100,
+        177
+      ],
+      "name": "RegistryInitialized"
+    },
+    {
+      "discriminator": [
+        15,
+        232,
+        34,
+        127,
+        153,
+        97,
+        137,
+        252
+      ],
+      "name": "SaltRotated"
+    },
+    {
+      "discriminator": [
+        84,
+        202,
+        76,
+        50,
+        9,
+        100,
+        246,
+        241
+      ],
+      "name": "TokenTransfer"
+    },
+    {
+      "discriminator": [
+        163,
+        73,
+        132,
+        31,
+        180,
+        152,
+        98,
+        48
+      ],
+      "name": "WalletClosed"
+    },
+    {
+      "discriminator": [
+        6,
+        2,
+        95,
+        235,
+        116,
+        238,
+        156,
+        98
+      ],
+      "name": "WalletInitialized"
+    }
+  ],
+  "instructions": [
+    {
+      "accounts": [
+        {
+          "name": "admin",
+          "relations": [
+            "registry"
+          ],
+          "signer": true,
+          "writable": true
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "new_mint",
+          "type": "pubkey"
+        }
+      ],
+      "discriminator": [
+        171,
+        222,
+        111,
+        37,
+        60,
+        166,
+        208,
+        108
+      ],
+      "docs": [
+        "Add a new approved mint (admin only)",
+        "",
+        "# Arguments",
+        "* `new_mint` - Public key of the mint to approve"
+      ],
+      "name": "add_mint"
+    },
+    {
+      "accounts": [
+        {
+          "name": "wallet"
+        }
+      ],
+      "args": [],
+      "discriminator": [
+        73,
+        83,
+        254,
+        62,
+        189,
+        158,
+        241,
+        42
+      ],
+      "docs": [
+        "Check wallet balance (read-only instruction)"
+      ],
+      "name": "check_balance"
+    },
+    {
+      "accounts": [
+        {
+          "name": "alias_index",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "alias",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ],
+      "discriminator": [
+        37,
+        74,
+        146,
+        114,
+        28,
+        202,
+        182,
+        171
+      ],
+      "docs": [
+        "Close alias index PDA and reclaim rent",
+        "This should be called after closing a wallet to free up the alias"
+      ],
+      "name": "close_alias_index"
+    },
+    {
+      "accounts": [
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "relations": [
+            "registry"
+          ],
+          "signer": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [],
+      "discriminator": [
+        76,
+        32,
+        154,
+        180,
+        51,
+        159,
+        218,
+        102
+      ],
+      "docs": [
+        "Close the mint registry and reclaim rent (admin only)"
+      ],
+      "name": "close_registry"
+    },
+    {
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "wallet"
+          ],
+          "signer": true
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "writable": true
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [],
+      "discriminator": [
+        35,
+        212,
+        234,
+        224,
+        244,
+        208,
+        31,
+        204
+      ],
+      "docs": [
+        "Close wallet and reclaim rent"
+      ],
+      "name": "close_wallet"
+    },
+    {
+      "accounts": [
+        {
+          "name": "admin",
+          "relations": [
+            "registry"
+          ],
+          "signer": true,
+          "writable": true
+        },
+        {
+          "name": "sim_mint",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "docs": [
+            "NOW REQUIRES registry already exists"
+          ],
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "name": "token_program"
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "SysvarRent111111111111111111111111111111111",
+          "name": "rent"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "_decimals",
+          "type": "u8"
+        }
+      ],
+      "discriminator": [
+        203,
+        35,
+        96,
+        97,
+        220,
+        164,
+        152,
+        221
+      ],
+      "docs": [
+        "Create the SIM native SPL mint and whitelist it",
+        "",
+        "# Arguments",
+        "* `_decimals` - Number of decimal places for the mint"
+      ],
+      "name": "create_sim_mint"
+    },
+    {
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "payer",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "discriminator": [
+        13,
+        158,
+        13,
+        223,
+        95,
+        213,
+        28,
+        6
+      ],
+      "docs": [
+        "Deposit native SOL into a wallet",
+        "",
+        "# Arguments",
+        "* `amount` - Amount of SOL to deposit (in lamports)",
+        "",
+        "Uses a CPI to the System Program because only the System Program can debit user wallets. Direct lamports mutation is not allowed for accounts not owned by this program."
+      ],
+      "name": "deposit_native"
+    },
+    {
+      "accounts": [
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "args": [],
+      "discriminator": [
+        115,
+        90,
+        99,
+        168,
+        138,
+        18,
+        157,
+        131
+      ],
+      "docs": [
+        "Health check for monitoring wallet count"
+      ],
+      "name": "health_check"
+    },
+    {
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "SysvarRent111111111111111111111111111111111",
+          "name": "rent"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "salt",
+          "type": "bytes"
+        }
+      ],
+      "discriminator": [
+        208,
+        127,
+        21,
+        1,
+        194,
+        190,
+        196,
+        70
+      ],
+      "docs": [
+        "Initialize the global configuration with salt for wallet derivation",
+        "",
+        "# Arguments",
+        "* `salt` - Cryptographic salt for wallet PDA derivation (max 32 bytes)"
+      ],
+      "name": "initialize_config"
+    },
+    {
+      "accounts": [
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "SysvarRent111111111111111111111111111111111",
+          "name": "rent"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [],
+      "discriminator": [
+        189,
+        181,
+        20,
+        17,
+        174,
+        57,
+        249,
+        59
+      ],
+      "docs": [
+        "Initialize the global mint registry"
+      ],
+      "name": "initialize_registry"
+    },
+    {
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "sim",
+          "type": "string"
+        },
+        {
+          "name": "pin_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ],
+      "discriminator": [
+        213,
+        0,
+        239,
+        240,
+        73,
+        100,
+        188,
+        193
+      ],
+      "docs": [
+        "Initialize a new wallet for a SIM number",
+        "",
+        "# Arguments",
+        "* `sim` - SIM number string",
+        "* `pin_hash` - Hashed PIN (32 bytes)"
+      ],
+      "name": "initialize_wallet"
+    },
+    {
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "relations": [
+            "config"
+          ],
+          "signer": true
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "new_salt",
+          "type": "bytes"
+        }
+      ],
+      "discriminator": [
+        213,
+        55,
+        72,
+        38,
+        59,
+        79,
+        169,
+        98
+      ],
+      "docs": [
+        "Rotate the salt for enhanced security",
+        "",
+        "# Arguments",
+        "* `new_salt` - New cryptographic salt (max 32 bytes)"
+      ],
+      "name": "rotate_salt"
+    },
+    {
+      "accounts": [
+        {
+          "name": "sender_wallet",
+          "writable": true
+        },
+        {
+          "name": "receiver_wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "sender_wallet"
+          ],
+          "signer": true
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "discriminator": [
+        85,
+        55,
+        34,
+        204,
+        253,
+        10,
+        199,
+        182
+      ],
+      "docs": [
+        "Send native SOL between wallets",
+        "",
+        "# Arguments",
+        "* `amount` - Amount of SOL to send (in lamports)",
+        "",
+        "Uses direct lamports mutation because both wallets are PDAs owned by this program."
+      ],
+      "name": "send_native"
+    },
+    {
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "wallet"
+          ],
+          "signer": true,
+          "writable": true
+        },
+        {
+          "docs": [
+            "Alias index PDA for O(1) uniqueness checking",
+            "This will fail if an AliasIndex already exists for that alias (guaranteed uniqueness)"
+          ],
+          "name": "alias_index",
+          "writable": true
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "alias",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ],
+      "discriminator": [
+        10,
+        230,
+        117,
+        36,
+        20,
+        115,
+        197,
+        55
+      ],
+      "docs": [
+        "Set an alias for a wallet (scalable O(1) uniqueness checking)",
+        "",
+        "# Arguments",
+        "* `alias` - 32-byte alias to set for the wallet",
+        "",
+        "Uses dedicated alias index PDAs for O(1) collision detection instead of scanning accounts.",
+        "This approach scales to any number of wallets without hitting account size limits.",
+        "Guaranteed uniqueness: PDA collision prevents duplicate aliases."
+      ],
+      "name": "set_alias"
+    },
+    {
+      "accounts": [
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "admin",
+          "relations": [
+            "registry"
+          ],
+          "signer": true
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "new_admin",
+          "type": "pubkey"
+        }
+      ],
+      "discriminator": [
+        42,
+        242,
+        66,
+        106,
+        228,
+        10,
+        111,
+        156
+      ],
+      "docs": [
+        "Transfer admin control to a new admin",
+        "",
+        "# Arguments",
+        "* `new_admin` - Public key of the new admin"
+      ],
+      "name": "transfer_admin"
+    },
+    {
+      "accounts": [
+        {
+          "name": "sender_wallet",
+          "writable": true
+        },
+        {
+          "name": "receiver_wallet",
+          "writable": true
+        },
+        {
+          "name": "sender_ata",
+          "pda": {
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            },
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "sender_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "receiver_ata",
+          "pda": {
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            },
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "receiver_wallet"
+              },
+              {
+                "kind": "const",
+                "value": [
+                  6,
+                  221,
+                  246,
+                  225,
+                  215,
+                  101,
+                  161,
+                  147,
+                  217,
+                  203,
+                  225,
+                  70,
+                  206,
+                  235,
+                  121,
+                  172,
+                  28,
+                  180,
+                  133,
+                  237,
+                  95,
+                  91,
+                  55,
+                  145,
+                  58,
+                  140,
+                  245,
+                  133,
+                  126,
+                  255,
+                  0,
+                  169
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "mint"
+              }
+            ]
+          },
+          "writable": true
+        },
+        {
+          "name": "mint"
+        },
+        {
+          "name": "registry",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  105,
+                  110,
+                  116,
+                  95,
+                  114,
+                  101,
+                  103,
+                  105,
+                  115,
+                  116,
+                  114,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "sender_wallet"
+          ],
+          "signer": true
+        },
+        {
+          "name": "relayer",
+          "signer": true,
+          "writable": true
+        },
+        {
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "name": "token_program"
+        },
+        {
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
+          "name": "associated_token_program"
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "discriminator": [
+        219,
+        17,
+        122,
+        53,
+        237,
+        171,
+        232,
+        222
+      ],
+      "docs": [
+        "Transfer SPL tokens between wallets",
+        "",
+        "# Arguments",
+        "* `amount` - Amount of tokens to transfer"
+      ],
+      "name": "transfer_token"
+    },
+    {
+      "accounts": [
+        {
+          "name": "wallet",
+          "writable": true
+        },
+        {
+          "name": "owner",
+          "relations": [
+            "wallet"
+          ],
+          "signer": true
+        },
+        {
+          "name": "to",
+          "writable": true
+        },
+        {
+          "address": "11111111111111111111111111111111",
+          "name": "system_program"
+        },
+        {
+          "address": "Sysvar1nstructions1111111111111111111111111",
+          "name": "instructions"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "discriminator": [
+        113,
+        227,
+        26,
+        32,
+        53,
+        66,
+        90,
+        250
+      ],
+      "docs": [
+        "Withdraw native SOL from a wallet",
+        "",
+        "# Arguments",
+        "* `amount` - Amount of SOL to withdraw (in lamports)",
+        "",
+        "Uses direct lamports mutation because the wallet PDA is owned by this program."
+      ],
+      "name": "withdraw_native"
+    }
+  ],
+  "metadata": {
+    "description": "Created with Anchor",
+    "name": "simchain_wallet",
+    "spec": "0.1.0",
+    "version": "0.1.0"
+  },
+  "types": [
+    {
+      "name": "AdminTransferred",
+      "type": {
+        "fields": [
+          {
+            "name": "old_admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "new_admin",
+            "type": "pubkey"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "AliasCleared",
+      "type": {
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "alias",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "docs": [
+        "Alias index account for scalable alias uniqueness checking",
+        "Maps alias → wallet for O(1) alias collision detection"
+      ],
+      "name": "AliasIndex",
+      "type": {
+        "fields": [
+          {
+            "docs": [
+              "The wallet PDA that this alias points to"
+            ],
+            "name": "wallet",
+            "type": "pubkey"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "AliasSet",
+      "type": {
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "alias",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "Config",
+      "type": {
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "salt",
+            "type": "bytes"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "HealthCheckEvent",
+      "type": {
+        "fields": [
+          {
+            "name": "wallet_count",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "MintAdded",
+      "type": {
+        "fields": [
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "admin",
+            "type": "pubkey"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "MintRegistry",
+      "type": {
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "name": "approved",
+            "type": {
+              "vec": "pubkey"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "wallet_count",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "NativeTransfer",
+      "type": {
+        "fields": [
+          {
+            "name": "from",
+            "type": "pubkey"
+          },
+          {
+            "name": "to",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "transfer_type",
+            "type": "string"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "RegistryInitialized",
+      "type": {
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "SaltRotated",
+      "type": {
+        "fields": [
+          {
+            "name": "admin",
+            "type": "pubkey"
+          },
+          {
+            "docs": [
+              "SHA256(salt) so clients can update without embedding the full secret",
+              "This prevents event bloat and keeps the raw salt private"
+            ],
+            "name": "new_salt_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "TokenTransfer",
+      "type": {
+        "fields": [
+          {
+            "name": "from_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "to_wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "Wallet",
+      "type": {
+        "fields": [
+          {
+            "name": "sim_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "pin_hash",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "alias",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "WalletClosed",
+      "type": {
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "rent_reclaimed",
+            "type": "u64"
+          }
+        ],
+        "kind": "struct"
+      }
+    },
+    {
+      "name": "WalletInitialized",
+      "type": {
+        "fields": [
+          {
+            "name": "wallet",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          }
+        ],
+        "kind": "struct"
+      }
+    }
+  ]
+}

@@ -3,10 +3,10 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-simchain_wallet = "DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r"
+simchain_wallet = "7q4PDfC75tg7798xWmAyfBYyNu35sL8iv3gLhyi5EzHC"
 
 [programs.devnet]
-simchain_wallet = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+simchain_wallet = "DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r"
 
 [registry]
 url = "https://api.apr.dev"

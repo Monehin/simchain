@@ -5,7 +5,7 @@ use anchor_spl::{
     token::{self, Mint, Token, TokenAccount, Transfer},
 };
 
-declare_id!("DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r");
+declare_id!("7q4PDfC75tg7798xWmAyfBYyNu35sL8iv3gLhyi5EzHC");
 
 /// Shared CPI guard macro to avoid duplication
 macro_rules! no_cpi {
@@ -431,14 +431,14 @@ pub mod simchain_wallet {
 
     /// Close alias index PDA and reclaim rent
     /// This should be called after closing a wallet to free up the alias
-    pub fn close_alias_index(ctx: Context<CloseAliasIndex>) -> Result<()> {
+    pub fn close_alias_index(ctx: Context<CloseAliasIndex>, alias: [u8; 32]) -> Result<()> {
         no_cpi!(ctx);
         let alias_index = &ctx.accounts.alias_index;
         let _rent_reclaimed = alias_index.to_account_info().lamports();
         
         emit!(AliasCleared {
             wallet: alias_index.wallet,
-            alias: [0u8; 32], // We don't have the original alias here, but the event is still useful
+            alias, // Now we have the original alias for the event
         });
         
         Ok(())
@@ -606,6 +606,22 @@ pub mod simchain_wallet {
             mint: mint.key(),
             amount,
         });
+        
+        Ok(())
+    }
+
+    /// Validate PIN against stored hash
+    /// 
+    /// # Arguments
+    /// * `pin_hash` - Hash of the PIN to validate
+    pub fn validate_pin(ctx: Context<ValidatePin>, pin_hash: [u8; 32]) -> Result<()> {
+        let wallet = &ctx.accounts.wallet;
+        
+        // Check if the provided PIN hash matches the stored PIN hash
+        require!(
+            wallet.pin_hash == pin_hash,
+            SimchainError::Unauthorized
+        );
         
         Ok(())
     }
@@ -959,6 +975,13 @@ pub struct ModifyRegistry<'info> {
     /// CHECK: sysvar instructions account
     #[account(address = sysvar::instructions::ID)]
     pub instructions: AccountInfo<'info>,
+}
+
+/// Validate PIN against stored hash
+#[derive(Accounts)]
+pub struct ValidatePin<'info> {
+    #[account(seeds = [b"wallet", &wallet.sim_hash[..]], bump = wallet.bump)]
+    pub wallet: Account<'info, Wallet>,
 }
 
 /// Check wallet balance (view function)

@@ -1,11 +1,6 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -13,36 +8,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model WalletMapping {
-  id            String   @id @default(cuid())
-  simNumber     String   @unique @map("sim_number")
-  walletAddress String   @unique @map("wallet_address")
-  alias         String?  @db.VarChar(12)
-  ownerAddress  String   @map("owner_address")
-  simHash       String   @map("sim_hash") @db.VarChar(66) // 0x + 64 hex chars
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  @@map("wallet_mappings")
-}
-
 model AliasHistory {
-  id            String   @id @default(cuid())
-  walletAddress String   @map("wallet_address")
-  oldAlias      String?  @map("old_alias") @db.VarChar(12)
-  newAlias      String?  @map("new_alias") @db.VarChar(12)
-  changedAt     DateTime @default(now()) @map("changed_at")
-  changedBy     String   @map("changed_by") // Could be 'user' or 'admin'
+  id        String          @id @default(cuid())
+  walletId  String
+  oldAlias  String?
+  newAlias  String
+  changedAt DateTime        @default(now())
+  wallet    EncryptedWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
+  @@index([changedAt])
+  @@index([walletId])
   @@map("alias_history")
 }
 
-model SystemConfig {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+model EncryptedWallet {
+  id            String         @id @default(cuid())
+  encryptedSim  String
+  simHash       String         @unique
+  walletAddress String         @unique
+  country       String         @default("RW")
+  alias         String         @default("unknown")
+  lastBalance   Float?         @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  aliasHistory  AliasHistory[]
 
-  @@map("system_config")
+  @@map("encrypted_wallets")
+}
+
+model ErrorLog {
+  id           String   @id @default(cuid())
+  action       String
+  alias        String?
+  errorMessage String
+  errorCode    String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([action])
+  @@index([alias])
+  @@index([createdAt])
+  @@index([errorCode])
+  @@map("error_logs")
 }

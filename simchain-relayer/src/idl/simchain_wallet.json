@@ -124,7 +124,17 @@
           "address": "Sysvar1nstructions1111111111111111111111111"
         }
       ],
-      "args": []
+      "args": [
+        {
+          "name": "alias",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
     },
     {
       "name": "close_registry",
@@ -1153,6 +1163,41 @@
         {
           "name": "amount",
           "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "validate_pin",
+      "docs": [
+        "Validate PIN against stored hash",
+        "",
+        "# Arguments",
+        "* `pin_hash` - Hash of the PIN to validate"
+      ],
+      "discriminator": [
+        158,
+        221,
+        44,
+        209,
+        137,
+        167,
+        19,
+        147
+      ],
+      "accounts": [
+        {
+          "name": "wallet"
+        }
+      ],
+      "args": [
+        {
+          "name": "pin_hash",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
         }
       ]
     },

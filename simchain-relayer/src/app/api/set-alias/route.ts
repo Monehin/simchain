@@ -1,58 +1,110 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Keypair } from '@solana/web3.js';
-import { connection, programId } from '../../../lib/solana';
+import { Keypair, PublicKey } from '@solana/web3.js';
 import { SimchainClient } from '../../../lib/simchain-client';
+import { PinValidator } from '../../../lib/validation';
+import { ErrorLogger } from '../../../lib/audit-log';
+import { WalletDatabase } from '../../../lib/database';
+import { PROGRAM_ID } from '@/config/programId';
 
 export async function POST(request: NextRequest) {
   try {
-    const { sim, alias } = await request.json();
+    const { sim, pin, alias, country = 'RW' } = await request.json();
     
-    if (!sim || !alias) {
-      return NextResponse.json({ error: 'Missing sim or alias' }, { status: 400 });
+    if (!sim || !pin || !alias) {
+      return NextResponse.json(
+        { success: false, error: 'SIM number, PIN, and alias are required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!PinValidator.validatePin(pin)) {
+      return NextResponse.json(
+        { success: false, error: 'PIN must be exactly 6 digits' },
+        { status: 400 }
+      );
     }
 
-    // Validate alias length
-    if (alias.length > 32) {
-      return NextResponse.json({ 
-        error: 'Alias must be 32 characters or less' 
-      }, { status: 400 });
+    if (alias.length > 32 || alias.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Alias must be between 1 and 32 characters' },
+        { status: 400 }
+      );
     }
 
-    // Create a temporary keypair for the relayer
-    const relayer = Keypair.generate();
+    // Initialize the real blockchain client
+    const programId = new PublicKey(PROGRAM_ID);
     
-    // Airdrop some SOL to the relayer
-    const airdropSig = await connection.requestAirdrop(relayer.publicKey, 1000000000); // 1 SOL
-    await connection.confirmTransaction(airdropSig);
-
+    // Create a wallet keypair from the private key
+    const privateKeyString = process.env.WALLET_PRIVATE_KEY;
+    if (!privateKeyString) {
+      return NextResponse.json(
+        { success: false, error: 'Wallet private key not configured' },
+        { status: 500 }
+      );
+    }
+    
+    const privateKeyBytes = Uint8Array.from(JSON.parse(privateKeyString));
+    const wallet = Keypair.fromSecretKey(privateKeyBytes);
+    
     const client = new SimchainClient({
-      connection,
-      wallet: relayer,
+      connection: { rpcEndpoint: process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899' },
       programId,
+      wallet,
+      commitment: 'confirmed'
     });
 
-    // Check if wallet exists
-    const exists = await client.walletExists(sim);
-    if (!exists) {
-      return NextResponse.json({ 
-        error: 'Wallet not found for this SIM number',
-        sim: sim 
-      }, { status: 404 });
+    let result: string;
+    try {
+      result = await client.setAlias({ sim, alias, pin, country });
+    } catch (error: unknown) {
+      let errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes('Simulation failed')) {
+        if (errorMessage.includes('already in use')) {
+          errorMessage = 'Alias already in use.';
+        } else {
+          errorMessage = 'Failed to set alias. Please try again or contact support.';
+        }
+      }
+      return NextResponse.json({ success: false, error: errorMessage }, { status: 400 });
+    }
+    
+    // Store alias in database
+    try {
+      await WalletDatabase.updateWalletAlias(sim, alias);
+    } catch (dbError) {
+      console.error('Failed to store alias in database:', dbError);
+      // Log the database error
+      await ErrorLogger.logAliasSetError(sim, alias, dbError instanceof Error ? dbError.message : 'Database error', 'DB_ERROR', {
+        signature: result
+      });
+      // Don't fail the request if database storage fails
+      // The blockchain transaction was successful
     }
 
-    // For now, return success (actual alias setting would require more complex setup)
-    return NextResponse.json({ 
-      message: `Alias "${alias}" set successfully for ${sim}`,
-      sim: sim,
-      alias: alias,
-      note: 'Alias setting requires additional setup with proper transaction signing'
-    });
+    // Alias set successfully - no need to log success
 
+    let aliasResult: string = alias;
+    try {
+      const walletRecord = await WalletDatabase.findWalletBySim(sim);
+      if (walletRecord) {
+        aliasResult = walletRecord.alias || 'unknown';
+      }
+    } catch {}
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'Alias set successfully',
+        alias: aliasResult,
+        signature: result
+      }
+    });
+    
   } catch (error: unknown) {
-    console.error('Error setting alias:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to set alias';
-    return NextResponse.json({ 
-      error: errorMessage 
-    }, { status: 500 });
+    console.error('Set alias failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    );
   }
 } 

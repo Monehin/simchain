@@ -5,6 +5,7 @@ import { ErrorLogger } from '../../../lib/audit-log';
 import { PinValidator } from '../../../lib/validation';
 import { WalletDatabase } from '../../../lib/database';
 import { PhoneEncryption } from '../../../lib/encryption';
+import { PROGRAM_ID } from '@/config/programId';
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize the real blockchain client
-    const programId = new PublicKey(process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r');
+    const programId = new PublicKey(PROGRAM_ID);
     
     // Create a wallet keypair from the private key
     const privateKeyString = process.env.WALLET_PRIVATE_KEY;

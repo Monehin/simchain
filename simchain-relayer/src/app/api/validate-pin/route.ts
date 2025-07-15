@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SimchainClient } from '../../../lib/simchain-client';
 import { Keypair, PublicKey } from '@solana/web3.js';
+import { PROGRAM_ID } from '@/config/programId';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Initialize client
-    const programId = new PublicKey(process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r');
+    const programId = new PublicKey(PROGRAM_ID);
     
     // Create a wallet keypair from the private key
     const privateKeyString = process.env.WALLET_PRIVATE_KEY;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { SimchainClient } from '../../../lib/simchain-client';
+import { PROGRAM_ID } from '@/config/programId';
 
 export async function GET() {
   try {
@@ -8,7 +9,7 @@ export async function GET() {
     
     // Initialize the real blockchain client
     const rpcEndpoint = process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899';
-    const programId = new PublicKey(process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r');
+    const programId = new PublicKey(PROGRAM_ID);
     
     console.log('RPC endpoint and programId created');
     

@@ -4,6 +4,7 @@ import { SimchainClient, PinValidator } from '../../../lib/simchain-client';
 import { WalletDatabase } from '../../../lib/database';
 import { PhoneEncryption } from '../../../lib/encryption';
 import { ErrorLogger } from '../../../lib/audit-log';
+import { PROGRAM_ID } from '@/config/programId';
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     // Initialize the real blockchain client
     const rpcEndpoint = process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899';
-    const programId = new PublicKey(process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r');
+    const programId = new PublicKey(PROGRAM_ID);
     
     // Create a wallet keypair from the private key
     const privateKeyString = process.env.WALLET_PRIVATE_KEY;
@@ -67,16 +68,8 @@ export async function POST(request: NextRequest) {
     let result: string;
     try {
       result = await client.initializeWallet({ sim, pin, country });
-    } catch (error: any) {
-      let errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('Simulation failed')) {
-        // Try to extract more details from the error logs
-        if (errorMessage.includes('already in use')) {
-          errorMessage = 'Wallet already exists for this phone number.';
-        } else {
-          errorMessage = 'Wallet creation failed. Please try again or contact support.';
-        }
-      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return NextResponse.json(
         { success: false, error: errorMessage },
         { status: 400 }

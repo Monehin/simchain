@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import { SimchainClient } from '../../../lib/simchain-client';
+import { PROGRAM_ID } from '@/config/programId';
 
 export async function POST() {
   try {
     // Initialize the real blockchain client
     const rpcEndpoint = process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899';
-    const programId = new PublicKey(process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r');
+    const programId = new PublicKey(PROGRAM_ID);
     
     // Create a wallet keypair from the private key
     const privateKeyString = process.env.WALLET_PRIVATE_KEY;

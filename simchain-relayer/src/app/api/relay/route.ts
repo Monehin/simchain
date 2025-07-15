@@ -4,11 +4,12 @@ import { SimchainClient } from '../../../lib/simchain-client';
 import { WalletDatabase } from '../../../lib/database';
 import { PhoneEncryption } from '../../../lib/encryption';
 import { ErrorLogger } from '../../../lib/audit-log';
+import { PROGRAM_ID } from '@/config/programId';
 
 // Initialize the real blockchain client
 const getClient = () => {
   const rpcEndpoint = process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899';
-  const programId = new PublicKey(process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r');
+  const programId = new PublicKey(PROGRAM_ID);
   
   const privateKeyString = process.env.WALLET_PRIVATE_KEY;
   if (!privateKeyString) {
@@ -203,7 +204,7 @@ async function handleHealthCheck() {
       success: true,
       data: {
         connected: isConnected,
-        programId: process.env.PROGRAM_ID || 'DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r',
+        programId: PROGRAM_ID,
         message: 'Health check completed'
       }
     });

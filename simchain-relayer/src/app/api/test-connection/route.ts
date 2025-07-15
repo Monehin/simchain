@@ -46,6 +46,18 @@ export async function GET() {
       );
     }
 
+    // Check if the program exists on the blockchain
+    let programExists = false;
+    try {
+      const connection = new Connection(rpcEndpoint, 'confirmed');
+      const programInfo = await connection.getAccountInfo(programId);
+      programExists = programInfo !== null;
+      console.log('Program exists check:', programExists);
+    } catch (error) {
+      console.error('Error checking program existence:', error);
+      programExists = false;
+    }
+
     // Get program accounts count to demonstrate @solana/kit functionality
     const programAccountsCount = await client.getProgramAccounts();
 
@@ -54,6 +66,7 @@ export async function GET() {
       data: {
         connected: isConnected,
         programId: programId.toBase58(),
+        programExists,
         programAccountsCount,
         client: '@solana/kit'
       }

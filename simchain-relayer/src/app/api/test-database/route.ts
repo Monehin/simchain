@@ -9,7 +9,7 @@ export async function GET() {
         id: true,
         walletAddress: true,
         country: true,
-        currentAlias: true,
+        alias: true,
         createdAt: true,
         updatedAt: true
       }

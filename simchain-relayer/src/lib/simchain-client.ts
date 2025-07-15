@@ -644,7 +644,7 @@ export class SimchainClient {
     try {
       const accounts = await this.rpc.getProgramAccounts(
         address(this.config.programId.toBase58()),
-        { encoding: 'base58' }
+        { encoding: 'base64' }
       ).send();
       
       return accounts.length;

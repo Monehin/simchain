@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          alias: walletRecord.currentAlias,
+          alias: walletRecord.alias || 'unknown',
           balance
         }
       });

@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     try {
       const walletRecord = await WalletDatabase.findWalletBySim(sim);
       if (walletRecord) {
-        aliasResult = walletRecord.currentAlias;
+        aliasResult = walletRecord.alias || 'unknown';
       }
     } catch {}
     return NextResponse.json({

@@ -84,9 +84,9 @@ export async function POST(request: NextRequest) {
     let toAlias: string = 'unknown';
     try {
       const fromWallet = await WalletDatabase.findWalletBySim(fromSim);
-      if (fromWallet) fromAlias = fromWallet.currentAlias;
+      if (fromWallet) fromAlias = fromWallet.alias || 'unknown';
       const toWallet = await WalletDatabase.findWalletBySim(toSim);
-      if (toWallet) toAlias = toWallet.currentAlias;
+      if (toWallet) toAlias = toWallet.alias || 'unknown';
     } catch {}
     return NextResponse.json({
       success: true,

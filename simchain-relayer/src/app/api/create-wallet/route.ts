@@ -119,9 +119,9 @@ export async function POST(request: NextRequest) {
       });
       
       console.log('Wallet stored successfully in database');
-      console.log('Generated alias:', walletRecord.currentAlias);
+      console.log('Generated alias:', walletRecord.alias);
       
-      alias = walletRecord.currentAlias;
+      alias = walletRecord.alias || 'unknown';
       // Wallet created successfully - no need to log success
     } catch (dbError) {
       console.error('Failed to store wallet in database:', dbError);

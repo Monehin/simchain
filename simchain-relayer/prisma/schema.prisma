@@ -8,32 +8,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model EncryptedWallet {
-  id            String         @id @default(cuid())
-  encryptedSim  String
-  simHash       String         @unique
-  walletAddress String         @unique
-  country       String         @default("RW")
-  currentAlias  String         @default("unknown")
-  lastBalance   Float?         @default(0)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  aliasHistory  AliasHistory[] @relation("WalletAliasHistory")
-
-  @@map("encrypted_wallets")
-}
-
 model AliasHistory {
   id        String          @id @default(cuid())
   walletId  String
   oldAlias  String?
   newAlias  String
   changedAt DateTime        @default(now())
-  wallet    EncryptedWallet @relation("WalletAliasHistory", fields: [walletId], references: [id], onDelete: Cascade)
+  wallet    EncryptedWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
-  @@index([walletId])
   @@index([changedAt])
+  @@index([walletId])
   @@map("alias_history")
+}
+
+model EncryptedWallet {
+  id            String         @id @default(cuid())
+  encryptedSim  String
+  simHash       String         @unique
+  walletAddress String         @unique
+  country       String         @default("RW")
+  alias         String         @default("unknown")
+  lastBalance   Float?         @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  aliasHistory  AliasHistory[]
+
+  @@map("encrypted_wallets")
 }
 
 model ErrorLog {
@@ -47,7 +47,7 @@ model ErrorLog {
 
   @@index([action])
   @@index([alias])
-  @@index([errorCode])
   @@index([createdAt])
+  @@index([errorCode])
   @@map("error_logs")
 }

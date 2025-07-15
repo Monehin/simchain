@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         message: 'Funds deposited successfully',
-        alias: walletRecord.currentAlias,
+        alias: walletRecord.alias || 'unknown',
         amount,
         signature: result
       }

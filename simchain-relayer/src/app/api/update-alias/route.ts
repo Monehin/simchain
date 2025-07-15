@@ -29,22 +29,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Wallet not found' }, { status: 404 });
     }
 
-    const oldAlias = wallet.currentAlias;
+    const oldAlias = wallet.alias || 'unknown';
 
     // Update wallet alias
     await prisma.encryptedWallet.update({
       where: { walletAddress },
-      data: { currentAlias: newAlias }
+              data: { alias: newAlias }
     });
 
-    // Add alias history
-    await prisma.aliasHistory.create({
-      data: {
-        walletId: wallet.id,
-        oldAlias,
-        newAlias
-      }
-    });
+    // Note: Alias history tracking removed - using audit logs instead
 
     return NextResponse.json({ success: true, message: 'Alias updated', oldAlias, newAlias });
   } catch (error: unknown) {

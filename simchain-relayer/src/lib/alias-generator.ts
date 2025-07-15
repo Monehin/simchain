@@ -37,7 +37,7 @@ export class AliasGenerator {
       
       // Check if alias already exists
       const existing = await prisma.encryptedWallet.findFirst({
-        where: { currentAlias: alias }
+        where: { alias: alias }
       });
 
       if (!existing) {
@@ -115,7 +115,7 @@ export class AliasGenerator {
    */
   static async isAliasAvailable(alias: string): Promise<boolean> {
     const existing = await prisma.encryptedWallet.findFirst({
-      where: { currentAlias: alias }
+      where: { alias: alias }
     });
     return !existing;
   }
@@ -172,15 +172,15 @@ export class AliasGenerator {
   }> {
     try {
       const allAliases = await prisma.encryptedWallet.findMany({
-        select: { currentAlias: true }
+        select: { alias: true }
       });
 
       const totalAliases = allAliases.length;
-      const averageLength = allAliases.reduce((sum, wallet) => sum + wallet.currentAlias.length, 0) / totalAliases;
+      const averageLength = allAliases.reduce((sum, wallet) => sum + (wallet.alias?.length || 0), 0) / totalAliases;
 
       // Analyze patterns (simplified)
       const patterns = allAliases.map(wallet => {
-        const alias = wallet.currentAlias;
+        const alias = wallet.alias || '';
         if (alias.match(/^[A-Z][a-z]+[A-Z][a-z]+$/)) return 'AdjectiveNoun';
         if (alias.match(/^[A-Z][a-z]+\d+$/)) return 'NameNumber';
         if (alias.match(/^\d+$/)) return 'NumberOnly';

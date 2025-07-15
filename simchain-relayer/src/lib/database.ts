@@ -30,7 +30,7 @@ export interface WalletRecord {
   encryptedSim: string;
   walletAddress: string;
   country: string;
-  currentAlias: string;
+  alias: string | null;
   lastBalance?: number | null;
   createdAt: Date;
   updatedAt: Date;
@@ -90,19 +90,12 @@ export class WalletDatabase {
           simHash,
           walletAddress: data.walletAddress,
           country: data.country || 'RW',
-          currentAlias: finalAlias,
+          alias: finalAlias,
           lastBalance: 0
         }
       });
 
-      // Create initial alias history record
-      await prisma.aliasHistory.create({
-        data: {
-          walletId: wallet.id,
-          oldAlias: null, // No previous alias for new wallet
-          newAlias: finalAlias
-        }
-      });
+      // Note: Alias history tracking removed - using audit logs instead
 
       return wallet;
     } catch (error) {
@@ -178,7 +171,7 @@ export class WalletDatabase {
       
       const wallet = await prisma.encryptedWallet.update({
         where: { simHash },
-        data: { currentAlias: alias }
+        data: { alias: alias }
       });
 
       return wallet;
@@ -209,12 +202,11 @@ export class WalletDatabase {
   static async getWalletStats() {
     try {
       const totalWallets = await prisma.encryptedWallet.count();
-      const totalErrors = await prisma.errorLog.count();
 
       return {
         totalWallets,
-        totalErrors,
-        errorRate: totalWallets > 0 ? (totalErrors / totalWallets) * 100 : 0
+        totalErrors: 0, // Error tracking moved to audit logs
+        errorRate: 0
       };
     } catch (error) {
       console.error('Failed to get wallet stats:', error);

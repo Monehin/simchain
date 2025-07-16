@@ -71,10 +71,15 @@ curl -X POST http://localhost:3000/api/check-balance \
 
 ## 📚 Documentation
 
-- **[Quick Start Guide](QUICK_START_GUIDE.md)** - 5-minute setup guide
-- **[API Reference](API_REFERENCE.md)** - Complete API documentation
-- **[Project Guide](SIMChain_PROJECT_GUIDE.md)** - Comprehensive project overview
-- **[Current Status](CURRENT_STATUS.md)** - Real-time system status
+📖 **Complete documentation is available in the [docs/](docs/) folder:**
+
+- **[📚 Documentation Index](docs/README.md)** - Complete documentation overview
+- **[🚀 Quick Start Guide](docs/QUICK_START_GUIDE.md)** - 5-minute setup guide
+- **[🔧 Developer Quick Reference](docs/DEVELOPER_QUICK_REFERENCE.md)** - Essential commands and troubleshooting
+- **[🏗️ Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)** - Detailed system design
+- **[🔌 Comprehensive API Reference](docs/COMPREHENSIVE_API_REFERENCE.md)** - Complete API documentation
+- **[📋 Project Guide](docs/SIMChain_PROJECT_GUIDE.md)** - Comprehensive project overview
+- **[📊 Current Status](docs/CURRENT_STATUS.md)** - Real-time system status
 
 ## 🏗️ Architecture
 
@@ -158,7 +163,7 @@ The system is fully operational and ready for production deployment with:
 
 ## 📞 Support
 
-For detailed setup instructions, troubleshooting, and advanced features, see the [Project Guide](SIMChain_PROJECT_GUIDE.md).
+For detailed setup instructions, troubleshooting, and advanced features, see the [Documentation Index](docs/README.md) or the [Project Guide](docs/SIMChain_PROJECT_GUIDE.md).
 
 ---
 

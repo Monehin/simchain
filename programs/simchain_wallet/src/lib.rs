@@ -5,7 +5,7 @@ use anchor_spl::{
     token::{self, Mint, Token, TokenAccount, Transfer},
 };
 
-declare_id!("7q4PDfC75tg7798xWmAyfBYyNu35sL8iv3gLhyi5EzHC");
+declare_id!("CA8W1tSAho1u4sUXAtD7my962wsy94BDAW6cAd3YZ6kb");
 
 /// Shared CPI guard macro to avoid duplication
 macro_rules! no_cpi {

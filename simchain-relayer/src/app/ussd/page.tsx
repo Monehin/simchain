@@ -249,6 +249,7 @@ Simchain Mobile Money
 4. Set Alias
 5. Services
 6. Help
+7. Convert Tokens
 0. Exit
     `.trim()]
     }));
@@ -274,6 +275,10 @@ Simchain Mobile Money
         break;
       case '6':
         handleMainMenuSelection('help');
+        break;
+      case '7':
+        setState(prev => ({ ...prev, currentMenu: 'convert_source_token' }));
+        addMessage('Convert Tokens\nSelect source token:\n1. SOL\n2. DOT');
         break;
       case '0':
         endSession();
@@ -639,6 +644,21 @@ Press any key to continue...
       case 'services':
         handleServicesSelection(trimmedInput);
         break;
+      case 'convert_source_token':
+        handleConvertSourceToken(trimmedInput);
+        break;
+      case 'convert_target_token':
+        handleConvertTargetToken(trimmedInput);
+        break;
+      case 'convert_amount':
+        handleConvertAmount(trimmedInput);
+        break;
+      case 'convert_quote':
+        // This case is handled by fetchConversionQuote, so no action here
+        break;
+      case 'convert_confirm':
+        handleConvertConfirm(trimmedInput);
+        break;
       default:
         // Continue to main menu for any other input
         setState(prev => ({ ...prev, currentMenu: 'main' }));
@@ -667,6 +687,121 @@ Press any key to continue...
       isAuthenticated: false // Clear authentication state
     }));
     addMessage('Session ended. Thank you for using Simchain!');
+  };
+
+  const handleConvertSourceToken = (selection: string) => {
+    let sourceToken = '';
+    if (selection === '1') sourceToken = 'SOL';
+    else if (selection === '2') sourceToken = 'DOT';
+    else {
+      addMessage('❌ Invalid selection. Try again:');
+      return;
+    }
+    setState(prev => ({
+      ...prev,
+      currentMenu: 'convert_target_token',
+      tempData: { ...prev.tempData, sourceToken }
+    }));
+    addMessage('Select target token:\n1. SOL\n2. DOT');
+  };
+
+  const handleConvertTargetToken = (selection: string) => {
+    let targetToken = '';
+    if (selection === '1') targetToken = 'SOL';
+    else if (selection === '2') targetToken = 'DOT';
+    else {
+      addMessage('❌ Invalid selection. Try again:');
+      return;
+    }
+    // Prevent same token
+    if (targetToken === state.tempData.sourceToken) {
+      addMessage('❌ Source and target tokens must be different.');
+      setState(prev => ({ ...prev, currentMenu: 'convert_source_token' }));
+      return;
+    }
+    setState(prev => ({
+      ...prev,
+      currentMenu: 'convert_amount',
+      tempData: { ...prev.tempData, targetToken }
+    }));
+    addMessage('Enter amount to convert:');
+  };
+
+  const handleConvertAmount = (amount: string) => {
+    const numAmount = parseFloat(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      addMessage('❌ Invalid amount. Enter a positive number:');
+      return;
+    }
+    setState(prev => ({
+      ...prev,
+      currentMenu: 'convert_quote',
+      tempData: { ...prev.tempData, amount: numAmount }
+    }));
+    fetchConversionQuote(numAmount);
+  };
+
+  const fetchConversionQuote = async (amount: number) => {
+    setIsLoading(true);
+    const { sourceToken, targetToken } = state.tempData;
+    try {
+      const response = await fetch(`/api/cross-chain-conversion?sourceChain=${sourceToken === 'SOL' ? 'solana' : 'polkadot'}&targetChain=${targetToken === 'SOL' ? 'solana' : 'polkadot'}&amount=${amount}`);
+      const result = await response.json();
+      setIsLoading(false);
+      if (result.success) {
+        const quote = result.data;
+        setState(prev => ({
+          ...prev,
+          tempData: { ...prev.tempData, quote },
+          currentMenu: 'convert_confirm'
+        }));
+        addMessage(`Convert ${amount} ${sourceToken} to ${targetToken}\nRate: 1 ${sourceToken} = ${quote.exchangeRate} ${targetToken}\nFee: ${quote.fees.totalFee} ${sourceToken}\nYou receive: ${quote.targetAmount} ${targetToken}\nProceed? (1-Yes, 2-No)`);
+      } else {
+        addMessage('❌ Failed to get quote. Try again later.');
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
+      }
+    } catch (error) {
+      setIsLoading(false);
+      addMessage('❌ Network error. Try again.');
+      setState(prev => ({ ...prev, currentMenu: 'main' }));
+    }
+  };
+
+  const handleConvertConfirm = async (selection: string) => {
+    if (selection === '1') {
+      // Proceed with conversion
+      setIsLoading(true);
+      const { sourceToken, targetToken, amount } = state.tempData;
+      try {
+        const response = await fetch('/api/cross-chain-conversion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sim: state.mobileNumber,
+            pin: '000000', // Use dummy PIN since authenticated
+            sourceChain: sourceToken === 'SOL' ? 'solana' : 'polkadot',
+            targetChain: targetToken === 'SOL' ? 'solana' : 'polkadot',
+            amount,
+            sourceToken,
+            targetToken
+          })
+        });
+        const result = await response.json();
+        setIsLoading(false);
+        if (result.success) {
+          addMessage(`✅ Conversion successful!\nTx: ${result.data.sourceTx}\nReceived: ${result.data.targetAmount} ${targetToken}`);
+        } else {
+          addMessage(`❌ Conversion failed: ${result.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        setIsLoading(false);
+        addMessage('❌ Network error. Try again.');
+      }
+      setState(prev => ({ ...prev, currentMenu: 'main', tempData: {} }));
+    } else {
+      addMessage('Conversion cancelled. Returning to main menu.');
+      setState(prev => ({ ...prev, currentMenu: 'main', tempData: {} }));
+    }
   };
 
   return (

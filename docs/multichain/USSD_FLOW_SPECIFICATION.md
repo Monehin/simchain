@@ -38,7 +38,7 @@ If not registered:
 
 If registered:
   → Welcome back!
-    Enter your PIN: ****
+    Enter your PIN: ******
 ```
 
 ### **New User Registration**
@@ -59,10 +59,10 @@ Select option:
 ### **PIN Creation**
 ```
 Create PIN:
-Enter 4-digit PIN: ****
+Enter 6-digit PIN: ******
 
 Confirm PIN:
-Re-enter PIN: ****
+Re-enter PIN: ******
 
 PIN created successfully!
 
@@ -83,7 +83,7 @@ Select option:
 ### **User Login (if already registered)**
 ```
 Welcome back!
-Enter your PIN: ****
+Enter your PIN: ******
 
 ✅ Login successful!
 
@@ -102,7 +102,7 @@ Select option:
 ❌ Invalid PIN
 Attempts remaining: 2
 
-Enter PIN: ****
+Enter PIN: ******
 
 ✅ Login successful!
 
@@ -133,7 +133,7 @@ Select option:
 ```
 ⚠️ Session expired
 Please login again:
-Enter your PIN: ****
+Enter your PIN: ******
 
 ✅ Login successful!
 
@@ -165,10 +165,10 @@ Select option:
 ❌ PINs don't match
 Please try again
 
-Enter 4-digit PIN: ****
+Enter 6-digit PIN: ******
 
 Confirm PIN:
-Re-enter PIN: ****
+Re-enter PIN: ******
 
 PIN created successfully!
 ```
@@ -659,6 +659,7 @@ Session Expiry → Re-authentication → Continue or Exit
 - **Session Timeout**: 5 minutes of inactivity
 - **Max Session Duration**: 30 minutes
 - **Auto-logout**: After 3 failed PIN attempts
+- **Account Lockout**: 15 minutes after 3 failed attempts
 
 ### **Character Limits**
 - **Menu Options**: Max 160 characters per screen
@@ -666,7 +667,7 @@ Session Expiry → Re-authentication → Continue or Exit
 - **Status Messages**: Max 140 characters
 - **Error Messages**: Max 120 characters
 - **Phone Numbers**: International format (+1234567890)
-- **PIN**: 4-6 digits only
+- **PIN**: 6 digits only
 
 ### **Response Times**
 - **Menu Navigation**: <2 seconds
@@ -681,7 +682,7 @@ Session Expiry → Re-authentication → Continue or Exit
 - **Account Lockout**: 15 minutes after 3 failed attempts
 
 ### **Input Validation**
-- **PIN**: 4-6 digits only
+- **PIN**: 6 digits only
 - **Amount**: Positive numbers with decimals
 - **Phone Number**: International format (+1234567890)
 - **Alias**: 3-20 alphanumeric characters
@@ -737,7 +738,7 @@ User dials *123#
     │   ▼
     │ ┌─────────────────┐
     │ │ Create PIN      │
-    │ │ ****            │
+    │ │ ******          │
     │ └─────────────────┘
     │   │
     │   ▼
@@ -756,7 +757,7 @@ User dials *123#
     │   ▼
     │ ┌─────────────────┐
     │ │ Enter PIN       │
-    │ │ ****            │
+    │ │ ******          │
     │ └─────────────────┘
     │   │
     │   ▼

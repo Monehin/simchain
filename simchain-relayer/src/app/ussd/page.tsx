@@ -1,13 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import React from "react";
+import Image from 'next/image';
 
-interface WalletInfo {
-  address: string;
-  balance: number;
-  exists: boolean;
-  alias?: string;
-}
+import { useState } from 'react';
 
 interface USSDState {
   isActive: boolean;
@@ -20,7 +16,7 @@ interface USSDState {
   messages: string[];
   alias: string | null;
   walletAddress: string | null;
-  isAuthenticated: boolean; // Track if user is authenticated without storing PIN
+  isAuthenticated: boolean;
 }
 
 export default function USSDSimulator() {
@@ -59,8 +55,6 @@ export default function USSDSimulator() {
       return false;
     }
   };
-
-
 
   // Handle dial code
   const handleDial = () => {
@@ -161,7 +155,7 @@ Redirecting to main menu...
               isRegistered: true,
               walletAddress: result.data.walletAddress,
               alias: result.data.alias,
-              isAuthenticated: true // Mark as authenticated after successful registration
+              isAuthenticated: true
             }));
             showMainMenu();
           }, 3000);
@@ -220,7 +214,7 @@ Redirecting to main menu...
         ...prev, 
         pinAttempts: 0,
         currentMenu: 'main',
-        isAuthenticated: true // Mark as authenticated without storing PIN
+        isAuthenticated: true
       }));
       showMainMenu();
     } catch (error) {
@@ -248,8 +242,7 @@ Simchain Mobile Money
 3. Deposit Money
 4. Set Alias
 5. Services
-6. Help
-7. Convert Tokens
+6. Cross-Chain Convert
 0. Exit
     `.trim()]
     }));
@@ -257,28 +250,67 @@ Simchain Mobile Money
 
   // Handle menu selection
   const handleMenuSelection = (selection: string) => {
-    switch (selection) {
+    if (state.currentMenu === 'registration') {
+      handleRegistrationSelection(selection);
+    } else if (state.currentMenu === 'main') {
+      handleMainMenuSelection(selection);
+    } else if (state.currentMenu === 'services') {
+      handleServicesSelection(selection);
+    } else if (state.currentMenu === 'convert_source_token') {
+      handleConvertSourceToken(selection);
+    } else if (state.currentMenu === 'convert_target_token') {
+      handleConvertTargetToken(selection);
+    } else if (state.currentMenu === 'convert_amount') {
+      handleConvertAmount(selection);
+    } else if (state.currentMenu === 'convert_confirm') {
+      handleConvertConfirm(selection);
+    } else if (state.currentMenu === 'send_amount') {
+      handleSendAmount(selection);
+    } else if (state.currentMenu === 'send_recipient') {
+      handleSendRecipient(selection);
+    } else if (state.currentMenu === 'deposit_amount') {
+      handleDepositAmount(selection);
+    } else if (state.currentMenu === 'alias_input') {
+      handleAliasInput(selection);
+    }
+  };
+
+  // Handle registration selection
+  const handleRegistrationSelection = (selection: string) => {
+    if (selection === '1') {
+      setState(prev => ({ ...prev, currentMenu: 'register_pin' }));
+      addMessage('Enter a 6-digit PIN for your wallet:');
+    } else if (selection === '2') {
+      endSession();
+    } else {
+      addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle main menu selection
+  const handleMainMenuSelection = (action: string) => {
+    switch (action) {
       case '1':
-        handleMainMenuSelection('balance');
+        checkBalance();
         break;
       case '2':
-        handleMainMenuSelection('send');
+        setState(prev => ({ ...prev, currentMenu: 'send_amount' }));
+        addMessage('Enter amount to send:');
         break;
       case '3':
-        handleMainMenuSelection('deposit');
+        setState(prev => ({ ...prev, currentMenu: 'deposit_amount' }));
+        addMessage('Enter amount to deposit:');
         break;
       case '4':
-        handleMainMenuSelection('alias');
+        setState(prev => ({ ...prev, currentMenu: 'alias_input' }));
+        addMessage('Enter your preferred alias:');
         break;
       case '5':
-        handleMainMenuSelection('services');
+        showServicesMenu();
         break;
       case '6':
-        handleMainMenuSelection('help');
-        break;
-      case '7':
         setState(prev => ({ ...prev, currentMenu: 'convert_source_token' }));
-        addMessage('Convert Tokens\nSelect source token:\n1. SOL\n2. DOT');
+        addMessage('Select source token:\n1. SOL\n2. DOT');
         break;
       case '0':
         endSession();
@@ -288,66 +320,15 @@ Simchain Mobile Money
     }
   };
 
-  // Handle registration selection
-  const handleRegistrationSelection = (selection: string) => {
-    switch (selection) {
-      case '1':
-        setState(prev => ({ ...prev, currentMenu: 'register_pin' }));
-        addMessage('Enter a 6-digit PIN for your wallet:');
-        break;
-      case '2':
-        endSession();
-        break;
-      default:
-        addMessage('❌ Invalid selection. Try again:');
-    }
-  };
-
-  // Handle main menu selection
-  const handleMainMenuSelection = (action: string) => {
-    switch (action) {
-      case 'balance':
-        checkBalance();
-        break;
-      case 'send':
-        setState(prev => ({ ...prev, currentMenu: 'send_amount' }));
-        addMessage('Enter amount to send (SOL):');
-        break;
-      case 'deposit':
-        setState(prev => ({ ...prev, currentMenu: 'deposit_amount' }));
-        addMessage('Enter amount to deposit (SOL):');
-        break;
-      case 'alias':
-        setState(prev => ({ ...prev, currentMenu: 'alias_input' }));
-        addMessage('Enter your preferred alias:');
-        break;
-      case 'services':
-        showServicesMenu();
-        break;
-      case 'help':
-        showHelp();
-        break;
-    }
-  };
-
   // Check balance
   const checkBalance = async () => {
-    if (!state.isAuthenticated) {
-      addMessage('❌ Session expired. Please dial *906# again.');
-      endSession();
-      return;
-    }
-
     setIsLoading(true);
-    addMessage('⏳ Checking balance...');
-    
     try {
       const response = await fetch('/api/check-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sim: state.mobileNumber,
-          pin: '000000', // Use dummy PIN since user is already authenticated
           country: 'RW'
         })
       });
@@ -356,60 +337,58 @@ Simchain Mobile Money
       
       if (result.success) {
         const balance = result.data.balance;
-        const alias = result.data.alias || 'No alias set';
-        const walletAddress = state.walletAddress || result.data.walletAddress || 'Unknown';
         addMessage(`
-Balance: ${balance.toFixed(4)} SOL
-Alias: ${alias}
-Address: ${walletAddress.slice(0, 8)}...${walletAddress.slice(-8)}
+Balance: ${balance} SOL
+Alias: ${result.data.alias || 'Not set'}
 
-Press any key to continue...
+1. Back to Main Menu
+0. Exit
         `.trim());
+        setState(prev => ({ ...prev, currentMenu: 'balance_result' }));
       } else {
-        addMessage('❌ Failed to check balance. Please try again.');
+        addMessage(`❌ Error: ${result.error || 'Failed to check balance'}`);
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
       }
     } catch (error) {
       setIsLoading(false);
-      addMessage('❌ Network error. Please try again.');
+      addMessage('❌ Network error. Try again.');
+      setState(prev => ({ ...prev, currentMenu: 'main' }));
     }
   };
 
-  // Handle send amount input
+  // Handle send amount
   const handleSendAmount = (amount: string) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       addMessage('❌ Invalid amount. Enter a positive number:');
       return;
     }
-    
-    setState(prev => ({ 
-      ...prev, 
+    setState(prev => ({
+      ...prev,
       currentMenu: 'send_recipient',
-      tempData: { ...prev.tempData, sendAmount: numAmount }
+      tempData: { ...prev.tempData, amount: numAmount }
     }));
-    addMessage('Enter recipient phone number:');
+    addMessage('Enter recipient mobile number:');
   };
 
-  // Handle send recipient input
+  // Handle send recipient
   const handleSendRecipient = async (recipient: string) => {
-    if (!state.isAuthenticated) {
-      addMessage('❌ Session expired. Please dial *906# again.');
-      endSession();
+    if (!recipient.trim()) {
+      addMessage('❌ Please enter a recipient number:');
       return;
     }
 
     setIsLoading(true);
-    addMessage('⏳ Sending money...');
-    
+    const { amount } = state.tempData;
     try {
       const response = await fetch('/api/send-funds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fromSim: state.mobileNumber,
-          toSim: recipient,
-          amount: state.tempData.sendAmount,
-          pin: '000000', // Use dummy PIN since user is already authenticated
+          sim: state.mobileNumber,
+          pin: '000000', // Use dummy PIN since authenticated
+          recipient: recipient,
+          amount: amount,
           country: 'RW'
         })
       });
@@ -418,45 +397,46 @@ Press any key to continue...
       
       if (result.success) {
         addMessage(`
-✅ Money sent successfully!
-Amount: ${state.tempData.sendAmount} SOL
-To: ${recipient}
-Transaction: ${result.data.signature.slice(0, 8)}...${result.data.signature.slice(-8)}
+✅ Transfer successful!
+Amount: ${amount} SOL
+Recipient: ${recipient}
+Tx: ${result.data.txHash}
 
-Press any key to continue...
+1. Back to Main Menu
+0. Exit
         `.trim());
+        setState(prev => ({ 
+          ...prev, 
+          currentMenu: 'send_result',
+          tempData: {}
+        }));
       } else {
-        addMessage(`❌ Send failed: ${result.error || 'Unknown error'}`);
+        addMessage(`❌ Transfer failed: ${result.error || 'Unknown error'}`);
+        setState(prev => ({ ...prev, currentMenu: 'main', tempData: {} }));
       }
     } catch (error) {
       setIsLoading(false);
-      addMessage('❌ Network error. Please try again.');
+      addMessage('❌ Network error. Try again.');
+      setState(prev => ({ ...prev, currentMenu: 'main', tempData: {} }));
     }
-    
-    setState(prev => ({ 
-      ...prev, 
-      currentMenu: 'main',
-      tempData: {}
-    }));
   };
 
-  // Handle deposit amount input
+  // Handle deposit amount
   const handleDepositAmount = async (amount: string) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       addMessage('❌ Invalid amount. Enter a positive number:');
       return;
     }
-    
+
     setIsLoading(true);
-    addMessage('⏳ Depositing money...');
-    
     try {
       const response = await fetch('/api/deposit-funds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sim: state.mobileNumber,
+          pin: '000000', // Use dummy PIN since authenticated
           amount: numAmount,
           country: 'RW'
         })
@@ -466,47 +446,41 @@ Press any key to continue...
       
       if (result.success) {
         addMessage(`
-✅ Money deposited successfully!
+✅ Deposit successful!
 Amount: ${numAmount} SOL
-Transaction: ${result.data.signature.slice(0, 8)}...${result.data.signature.slice(-8)}
+Tx: ${result.data.txHash}
 
-Press any key to continue...
+1. Back to Main Menu
+0. Exit
         `.trim());
+        setState(prev => ({ ...prev, currentMenu: 'deposit_result' }));
       } else {
         addMessage(`❌ Deposit failed: ${result.error || 'Unknown error'}`);
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
       }
     } catch (error) {
       setIsLoading(false);
-      addMessage('❌ Network error. Please try again.');
+      addMessage('❌ Network error. Try again.');
+      setState(prev => ({ ...prev, currentMenu: 'main' }));
     }
-    
-    setState(prev => ({ ...prev, currentMenu: 'main' }));
   };
 
   // Handle alias input
   const handleAliasInput = async (alias: string) => {
-    if (!state.isAuthenticated) {
-      addMessage('❌ Session expired. Please dial *906# again.');
-      endSession();
+    if (!alias.trim() || alias.length < 3) {
+      addMessage('❌ Alias must be at least 3 characters. Try again:');
       return;
     }
 
-    if (alias.length < 3 || alias.length > 20) {
-      addMessage('❌ Alias must be 3-20 characters. Try again:');
-      return;
-    }
-    
     setIsLoading(true);
-    addMessage('⏳ Setting alias...');
-    
     try {
       const response = await fetch('/api/set-alias', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sim: state.mobileNumber,
+          pin: '000000', // Use dummy PIN since authenticated
           alias: alias,
-          pin: '000000', // Use dummy PIN since user is already authenticated
           country: 'RW'
         })
       });
@@ -518,18 +492,23 @@ Press any key to continue...
 ✅ Alias set successfully!
 New alias: ${alias}
 
-Press any key to continue...
+1. Back to Main Menu
+0. Exit
         `.trim());
-        setState(prev => ({ ...prev, alias: alias }));
+        setState(prev => ({ 
+          ...prev, 
+          currentMenu: 'alias_result',
+          alias: alias
+        }));
       } else {
         addMessage(`❌ Failed to set alias: ${result.error || 'Unknown error'}`);
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
       }
     } catch (error) {
       setIsLoading(false);
-      addMessage('❌ Network error. Please try again.');
+      addMessage('❌ Network error. Try again.');
+      setState(prev => ({ ...prev, currentMenu: 'main' }));
     }
-    
-    setState(prev => ({ ...prev, currentMenu: 'main' }));
   };
 
   // Show services menu
@@ -539,8 +518,8 @@ Press any key to continue...
       messages: [`
 Services
 1. Health Check
-2. Back to Main Menu
-0. Exit
+2. Help
+0. Back to Main Menu
     `.trim()]
     }));
   };
@@ -552,11 +531,10 @@ Services
         performHealthCheck();
         break;
       case '2':
-        setState(prev => ({ ...prev, currentMenu: 'main' }));
-        showMainMenu();
+        showHelp();
         break;
       case '0':
-        endSession();
+        showMainMenu();
         break;
       default:
         addMessage('❌ Invalid selection. Try again:');
@@ -566,8 +544,6 @@ Services
   // Perform health check
   const performHealthCheck = async () => {
     setIsLoading(true);
-    addMessage('⏳ Performing health check...');
-    
     try {
       const response = await fetch('/api/test-connection');
       const result = await response.json();
@@ -576,97 +552,55 @@ Services
       if (result.success) {
         addMessage(`
 ✅ System Status: Healthy
-Validator: Connected
-Program: Deployed
-Program ID: ${result.data.programId.slice(0, 8)}...${result.data.programId.slice(-8)}
+Database: Connected
+Solana: Connected
+Services: Operational
 
-Press any key to continue...
+1. Back to Services
+0. Back to Main Menu
         `.trim());
+        setState(prev => ({ ...prev, currentMenu: 'health_result' }));
       } else {
-        addMessage('❌ System Status: Unhealthy');
+        addMessage(`❌ System Status: Issues detected\n${result.error || 'Unknown error'}`);
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
       }
     } catch (error) {
       setIsLoading(false);
-      addMessage('❌ Health check failed');
+      addMessage('❌ Network error. Try again.');
+      setState(prev => ({ ...prev, currentMenu: 'main' }));
     }
   };
 
   // Show help
   const showHelp = () => {
-    setState(prev => ({
-      ...prev,
-      messages: [`
+    addMessage(`
 Help & Support
 - Dial *906# to access Simchain
-- PIN must be 6 digits
+- Use number keys to navigate menus
+- Enter 0 to go back or exit
 - Keep your PIN secure
 - Contact support for issues
 
-Press any key to continue...
-    `.trim()]
-    }));
+1. Back to Services
+0. Back to Main Menu
+    `.trim());
+    setState(prev => ({ ...prev, currentMenu: 'help_result' }));
   };
 
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (isLoading) return;
-    
-    const trimmedInput = input.trim();
-    if (!trimmedInput) return;
-    
-    setInput('');
-    
-    switch (state.currentMenu) {
-      case 'pin':
-      case 'register_pin':
-        handlePinValidation(trimmedInput);
-        break;
-      case 'registration':
-        handleRegistrationSelection(trimmedInput);
-        break;
-      case 'main':
-        handleMenuSelection(trimmedInput);
-        break;
-      case 'send_amount':
-        handleSendAmount(trimmedInput);
-        break;
-      case 'send_recipient':
-        handleSendRecipient(trimmedInput);
-        break;
-      case 'deposit_amount':
-        handleDepositAmount(trimmedInput);
-        break;
-      case 'alias_input':
-        handleAliasInput(trimmedInput);
-        break;
-      case 'services':
-        handleServicesSelection(trimmedInput);
-        break;
-      case 'convert_source_token':
-        handleConvertSourceToken(trimmedInput);
-        break;
-      case 'convert_target_token':
-        handleConvertTargetToken(trimmedInput);
-        break;
-      case 'convert_amount':
-        handleConvertAmount(trimmedInput);
-        break;
-      case 'convert_quote':
-        // This case is handled by fetchConversionQuote, so no action here
-        break;
-      case 'convert_confirm':
-        handleConvertConfirm(trimmedInput);
-        break;
-      default:
-        // Continue to main menu for any other input
-        setState(prev => ({ ...prev, currentMenu: 'main' }));
-        showMainMenu();
+    if (!input.trim()) return;
+
+    if (state.currentMenu === 'pin' || state.currentMenu === 'register_pin') {
+      handlePinValidation(input);
+    } else {
+      handleMenuSelection(input);
     }
+    setInput('');
   };
 
-  // Add message to the conversation
+  // Add message to display
   const addMessage = (message: string) => {
     setState(prev => ({
       ...prev,
@@ -674,21 +608,25 @@ Press any key to continue...
     }));
   };
 
-  // End USSD session
+  // End session
   const endSession = () => {
-    setState(prev => ({
-      ...prev,
+    setState({
       isActive: false,
+      mobileNumber: '',
+      isRegistered: false,
+      pinAttempts: 0,
       currentMenu: 'dial',
       menuStack: [],
       tempData: {},
       messages: [],
-      pinAttempts: 0,
-      isAuthenticated: false // Clear authentication state
-    }));
-    addMessage('Session ended. Thank you for using Simchain!');
+      alias: null,
+      walletAddress: null,
+      isAuthenticated: false,
+    });
+    setInput('');
   };
 
+  // Cross-chain conversion handlers
   const handleConvertSourceToken = (selection: string) => {
     let sourceToken = '';
     if (selection === '1') sourceToken = 'SOL';
@@ -805,105 +743,140 @@ Press any key to continue...
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-md mx-auto">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Header */}
-          <div className="bg-blue-600 text-white p-4">
-            <h1 className="text-xl font-bold">USSD Simulator</h1>
-            <p className="text-sm opacity-90">Simchain Mobile Money</p>
-          </div>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      {/* Instructions Panel - Left Side */}
+      <div className="mr-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg shadow-lg p-6 max-w-sm border border-blue-200">
+        <h3 className="font-semibold text-gray-800 mb-3">📱 USSD Instructions:</h3>
+        <ul className="text-sm text-gray-600 space-y-2">
+          <li>• Enter mobile number and dial *906#</li>
+          <li>• New users: Register with 6-digit PIN</li>
+          <li>• Existing users: Enter your PIN</li>
+          <li>• Navigate with number keys (1, 2, 3...)</li>
+          <li>• Use "0" to exit or go back</li>
+        </ul>
+      </div>
 
-          {/* Phone Number Input */}
-          {!state.isActive && (
-            <div className="p-4 border-b">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enter Mobile Number:
-              </label>
-                              <input
-                  type="tel"
-                  value={state.mobileNumber}
-                  onChange={(e) => setState(prev => ({ ...prev, mobileNumber: e.target.value }))}
-                  placeholder="+1234567890"
-                  className="w-full p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none text-gray-900 bg-white"
-                />
-              <button
-                onClick={handleDial}
-                className="mt-2 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors"
-              >
-                Dial *906#
-              </button>
-            </div>
-          )}
-
-          {/* USSD Session */}
-          {state.isActive && (
-            <>
-              {/* Session Info */}
-              <div className="p-4 bg-gray-50 border-b">
-                <div className="text-sm text-gray-600">
-                  <p><strong>Number:</strong> {state.mobileNumber}</p>
-                  <p><strong>Status:</strong> {state.isRegistered ? 'Registered' : 'New User'}</p>
-                  {state.walletAddress && (
-                    <p><strong>Wallet:</strong> {state.walletAddress.slice(0, 8)}...{state.walletAddress.slice(-8)}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="p-4 h-96 overflow-y-auto bg-black text-green-400 font-mono text-sm">
-                {state.messages.map((message, index) => (
-                  <div key={index} className="mb-2 whitespace-pre-line">
-                    {message}
+      {/* Feature Phone Frame - Centered */}
+      <div className="relative flex-shrink-0">
+        {/* Phone Body - Nokia-style feature phone */}
+        <div className="w-96 h-[650px] bg-gray-800 rounded-2xl shadow-2xl border-4 border-gray-700 relative overflow-hidden">
+          {/* Antenna */}
+          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-gray-600"></div>
+          
+          {/* Speaker */}
+          <div className="absolute top-3 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gray-600 rounded-full"></div>
+          
+          {/* Screen */}
+          <div className="absolute top-8 left-2 right-2 bottom-40 bg-gray-900 border-2 border-gray-600 rounded-lg">
+            {!state.isActive ? (
+              /* Phone Number Input Screen */
+              <div className="h-full flex flex-col justify-center items-center px-4">
+                <div className="text-center mb-6">
+                  <div className="mb-3">
+                    <Image 
+                      src="/Logo.png" 
+                      alt="Simchain Logo" 
+                      width={64} 
+                      height={64} 
+                      className="mx-auto"
+                      priority
+                    />
                   </div>
-                ))}
-                {isLoading && (
-                  <div className="text-yellow-400">⏳ Processing...</div>
-                )}
-              </div>
-
-              {/* Input */}
-              <form onSubmit={handleSubmit} className="p-4 border-t">
-                <div className="flex space-x-2">
+                  <h1 className="text-white text-xl font-bold mb-2">USSD Simulator</h1>
+                  <p className="text-gray-400 text-sm">Simchain Mobile Money</p>
+                </div>
+                
+                <div className="w-full space-y-4">
                   <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Enter your choice..."
-                    className="flex-1 p-2 border border-gray-300 rounded focus:border-blue-500 focus:outline-none text-gray-900 bg-white"
-                    disabled={isLoading}
+                    type="tel"
+                    value={state.mobileNumber}
+                    onChange={(e) => setState(prev => ({ ...prev, mobileNumber: e.target.value }))}
+                    placeholder="Enter mobile number"
+                    className="w-full p-4 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-center text-base"
                   />
                   <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    onClick={handleDial}
+                    className="w-full bg-blue-600 text-white py-4 px-6 rounded hover:bg-blue-700 transition-colors font-semibold text-base"
                   >
-                    Send
+                    Dial *906#
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={endSession}
-                  className="mt-2 w-full bg-red-600 text-white py-2 px-4 rounded hover:bg-red-700 transition-colors"
-                >
-                  End Session
-                </button>
-              </form>
-            </>
-          )}
+              </div>
+            ) : (
+              /* USSD Session Screen */
+              <div className="h-full flex flex-col">
+                {/* Session Header */}
+                <div className="px-3 py-2 bg-gray-800 border-b border-gray-600">
+                  <div className="text-sm text-gray-400">
+                    <span>Number: {state.mobileNumber}</span>
+                    <span className="float-right">{state.isRegistered ? 'Registered' : 'New'}</span>
+                  </div>
+                </div>
+
+                {/* USSD Display */}
+                <div className="flex-1 p-3 bg-black text-green-400 font-mono text-sm overflow-y-auto">
+                  {state.messages.map((message, index) => (
+                    <div key={index} className="mb-2 whitespace-pre-line leading-relaxed">
+                      {message}
+                    </div>
+                  ))}
+                  {isLoading && (
+                    <div className="text-yellow-400 animate-pulse">⏳ Processing...</div>
+                  )}
+                </div>
+
+                {/* Input Area */}
+                <div className="p-3 bg-gray-800 border-t border-gray-600">
+                  <form onSubmit={handleSubmit} className="space-y-3">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder="Enter choice..."
+                      className="w-full p-3 bg-black border border-gray-600 rounded text-green-400 font-mono focus:border-green-500 focus:outline-none text-center text-sm"
+                      disabled={isLoading}
+                    />
+                    <div className="flex space-x-2">
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors disabled:opacity-50 font-semibold text-sm"
+                      >
+                        Send
+                      </button>
+                      <button
+                        type="button"
+                        onClick={endSession}
+                        className="flex-1 bg-red-600 text-white py-3 px-4 rounded hover:bg-red-700 transition-colors font-semibold text-sm"
+                      >
+                        End
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Physical Keypad */}
+          <div className="absolute bottom-3 left-3 right-3 h-36 bg-gray-700 rounded-lg p-3">
+            <div className="grid grid-cols-3 gap-2 h-full">
+              {/* Number keys 1-9 */}
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                <div key={num} className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">
+                  {num}
+                </div>
+              ))}
+              {/* Bottom row: *, 0, # */}
+              <div className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">*</div>
+              <div className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">0</div>
+              <div className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">#</div>
+            </div>
+          </div>
         </div>
 
-        {/* Instructions */}
-        <div className="mt-4 bg-white rounded-lg shadow p-4">
-          <h3 className="font-semibold text-gray-800 mb-2">Instructions:</h3>
-          <ul className="text-sm text-gray-600 space-y-1">
-            <li>• Enter a mobile number and click "Dial *906#"</li>
-            <li>• For new users: Register with a 6-digit PIN</li>
-            <li>• For existing users: Enter your PIN</li>
-            <li>• Navigate menus using number keys (1, 2, 3, etc.)</li>
-            <li>• Use "0" to exit or go back</li>
-          </ul>
-        </div>
+        {/* Phone Shadow */}
+        <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-80 h-4 bg-black opacity-20 rounded-full blur-lg"></div>
       </div>
     </div>
   );

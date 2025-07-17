@@ -21,11 +21,63 @@ This document specifies the complete USSD flow for SIMChain's multichain impleme
 - Recovery options provided
 - Graceful fallbacks
 
-## 🔐 Authentication Flow
+## 🔐 Registration & Authentication Flow
 
-### **Initial Login**
+### **Initial USSD Access**
 ```
 Welcome to SIMChain
+*123# → Access SIMChain
+
+1 → Register new wallet
+2 → Login to existing wallet
+3 → Help
+4 → Exit
+
+Select option:
+```
+
+### **New User Registration**
+```
+Registration:
+Enter your phone number: +1234567890
+
+Confirm phone number:
++1234567890
+
+1 → Confirm
+2 → Change number
+3 → Back
+
+Select option:
+```
+
+### **PIN Creation**
+```
+Create PIN:
+Enter 4-digit PIN: ****
+
+Confirm PIN:
+Re-enter PIN: ****
+
+PIN created successfully!
+
+Creating wallet...
+⏳ Processing...
+
+✅ Registration successful!
+Wallet created on Solana
+Address: BKrNbFUgnFbsp3wC3fxwGAKhbPPh9ArS7PM2pWHCrLGb
+Alias: IndigoRoadrunner
+
+1 → Continue to wallet
+2 → Back to main menu
+
+Select option:
+```
+
+### **Existing User Login**
+```
+Login:
 Enter your PIN: ****
 
 ✅ Login successful!
@@ -43,8 +95,9 @@ Select option:
 ### **Invalid PIN Handling**
 ```
 ❌ Invalid PIN
-Please try again:
-****
+Attempts remaining: 2
+
+Enter PIN: ****
 
 ✅ Login successful!
 
@@ -54,6 +107,19 @@ USSD Menu:
 3 → Services
 4 → Help
 5 → Exit
+
+Select option:
+```
+
+### **Too Many Failed Attempts**
+```
+❌ Too many failed attempts
+Account temporarily locked
+Please try again in 15 minutes
+
+1 → Try again
+2 → Contact support
+3 → Exit
 
 Select option:
 ```
@@ -74,6 +140,32 @@ USSD Menu:
 5 → Exit
 
 Select option:
+```
+
+### **Registration Errors**
+```
+❌ Registration failed
+Reason: Phone number already registered
+
+1 → Login instead
+2 → Try different number
+3 → Contact support
+4 → Exit
+
+Select option:
+```
+
+### **PIN Mismatch During Registration**
+```
+❌ PINs don't match
+Please try again
+
+Enter 4-digit PIN: ****
+
+Confirm PIN:
+Re-enter PIN: ****
+
+PIN created successfully!
 ```
 
 ## 👛 Wallet Operations
@@ -523,7 +615,17 @@ Check back in 30 seconds.
 
 ### **Standard Navigation**
 ```
-Main Menu → Submenu → Action → Confirmation → Result → Back Options
+USSD Access → Register/Login → Main Menu → Submenu → Action → Confirmation → Result → Back Options
+```
+
+### **Registration Flow**
+```
+USSD Access → Register → Phone Number → PIN Creation → Wallet Creation → Main Menu
+```
+
+### **Login Flow**
+```
+USSD Access → Login → PIN Entry → Main Menu
 ```
 
 ### **Error Recovery**
@@ -536,13 +638,30 @@ Error → Explanation → Recovery Options → Retry or Back
 Session Expiry → Re-authentication → Continue or Exit
 ```
 
+### **USSD Session States**
+```
+1. Initial State: *123# → Welcome menu
+2. Registration State: Phone number → PIN creation
+3. Login State: PIN entry → Main menu
+4. Active Session: Main menu → Submenus → Actions
+5. Session Expired: Re-authentication required
+```
+
 ## 📱 USSD Technical Specifications
+
+### **USSD Code**
+- **Access Code**: *123# (standard USSD format)
+- **Session Timeout**: 5 minutes of inactivity
+- **Max Session Duration**: 30 minutes
+- **Auto-logout**: After 3 failed PIN attempts
 
 ### **Character Limits**
 - **Menu Options**: Max 160 characters per screen
 - **Input Fields**: Max 20 characters
 - **Status Messages**: Max 140 characters
 - **Error Messages**: Max 120 characters
+- **Phone Numbers**: International format (+1234567890)
+- **PIN**: 4-6 digits only
 
 ### **Response Times**
 - **Menu Navigation**: <2 seconds
@@ -554,12 +673,14 @@ Session Expiry → Re-authentication → Continue or Exit
 - **Session Timeout**: 5 minutes of inactivity
 - **Max Session Duration**: 30 minutes
 - **Auto-logout**: After 3 failed PIN attempts
+- **Account Lockout**: 15 minutes after 3 failed attempts
 
 ### **Input Validation**
 - **PIN**: 4-6 digits only
 - **Amount**: Positive numbers with decimals
-- **SIM**: International format (+1234567890)
+- **Phone Number**: International format (+1234567890)
 - **Alias**: 3-20 alphanumeric characters
+- **USSD Code**: *123# format
 
 ## 🎨 Menu Design Guidelines
 
@@ -586,6 +707,96 @@ Session Expiry → Re-authentication → Continue or Exit
 "Confirm (Y/N): "
 ```
 
+## 📊 Complete USSD Flow Diagram
+
+```
+User dials *123#
+    │
+    ▼
+┌─────────────────┐
+│ Welcome Menu    │
+│ 1. Register     │
+│ 2. Login        │
+│ 3. Help         │
+│ 4. Exit         │
+└─────────────────┘
+    │
+    ├─ 1 → Registration Flow
+    │   │
+    │   ▼
+    │ ┌─────────────────┐
+    │ │ Enter Phone #   │
+    │ │ +1234567890     │
+    │ └─────────────────┘
+    │   │
+    │   ▼
+    │ ┌─────────────────┐
+    │ │ Create PIN      │
+    │ │ ****            │
+    │ └─────────────────┘
+    │   │
+    │   ▼
+    │ ┌─────────────────┐
+    │ │ Wallet Created  │
+    │ │ Success!        │
+    │ └─────────────────┘
+    │   │
+    │   ▼
+    │ ┌─────────────────┐
+    │ │ Main Menu       │
+    │ └─────────────────┘
+    │
+    ├─ 2 → Login Flow
+    │   │
+    │   ▼
+    │ ┌─────────────────┐
+    │ │ Enter PIN       │
+    │ │ ****            │
+    │ └─────────────────┘
+    │   │
+    │   ▼
+    │ ┌─────────────────┐
+    │ │ Main Menu       │
+    │ └─────────────────┘
+    │
+    └─ 3 → Help Flow
+        │
+        ▼
+      ┌─────────────────┐
+      │ Help Menu       │
+      └─────────────────┘
+
+Main Menu Options:
+1 → Wallet (SOL/DOT/USDC)
+2 → Set Alias
+3 → Services (DeFi)
+4 → Help
+5 → Exit
+```
+
+## 🔄 Session State Transitions
+
+```
+Initial State (*123#)
+    │
+    ├─ Register → Phone Input → PIN Creation → Wallet Creation → Main Menu
+    ├─ Login → PIN Input → Main Menu
+    ├─ Help → Help Menu → Back to Initial
+    └─ Exit → End Session
+
+Main Menu State
+    │
+    ├─ Wallet → Chain Selection → Wallet Operations
+    ├─ Set Alias → Alias Management
+    ├─ Services → DeFi Services
+    ├─ Help → Help Menu
+    └─ Exit → End Session
+
+Session Expiry
+    │
+    └─ Re-authentication Required → PIN Input → Main Menu
+```
+
 ---
 
-*This USSD flow specification ensures a consistent, user-friendly experience across all multichain operations.* 
+*This USSD flow specification ensures a consistent, user-friendly experience across all multichain operations, from initial registration to advanced DeFi services.* 

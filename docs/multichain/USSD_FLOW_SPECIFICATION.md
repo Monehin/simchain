@@ -28,12 +28,17 @@ This document specifies the complete USSD flow for SIMChain's multichain impleme
 Welcome to SIMChain
 *123# → Access SIMChain
 
-1 → Register new wallet
-2 → Login to existing wallet
-3 → Help
-4 → Exit
+Checking registration status...
+⏳ Please wait...
 
-Select option:
+If not registered:
+  → Registration:
+    Enter your phone number: +1234567890
+    (proceed to PIN creation)
+
+If registered:
+  → Welcome back!
+    Enter your PIN: ****
 ```
 
 ### **New User Registration**
@@ -75,9 +80,9 @@ Alias: IndigoRoadrunner
 Select option:
 ```
 
-### **Existing User Login**
+### **User Login (if already registered)**
 ```
-Login:
+Welcome back!
 Enter your PIN: ****
 
 ✅ Login successful!
@@ -147,7 +152,7 @@ Select option:
 ❌ Registration failed
 Reason: Phone number already registered
 
-1 → Login instead
+1 → Try PIN (login)
 2 → Try different number
 3 → Contact support
 4 → Exit

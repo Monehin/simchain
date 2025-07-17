@@ -1,64 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Keypair, PublicKey } from '@solana/web3.js';
-import { SimchainClient } from '../../../lib/simchain-client';
 import { WalletDatabase } from '../../../lib/database';
 import { PhoneEncryption } from '../../../lib/encryption';
-import { ErrorLogger } from '../../../lib/audit-log';
-import { PROGRAM_ID } from '@/config/programId';
+import { ChainManager } from '../../../lib/chains/chain-manager';
 
-// Initialize the real blockchain client
-const getClient = () => {
-  const rpcEndpoint = process.env.SOLANA_CLUSTER_URL || 'http://127.0.0.1:8899';
-  const programId = new PublicKey(PROGRAM_ID);
-  
-  const privateKeyString = process.env.WALLET_PRIVATE_KEY;
-  if (!privateKeyString) {
-    throw new Error('Wallet private key not configured');
-  }
-  
-  const privateKeyBytes = Uint8Array.from(JSON.parse(privateKeyString));
-  const wallet = Keypair.fromSecretKey(privateKeyBytes);
-  
-  return new SimchainClient({
-    connection: { rpcEndpoint },
-    programId,
-    wallet,
-    commitment: 'confirmed'
-  });
-};
+const chainManager = new ChainManager();
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, ...params } = body;
+    const { action, chain = 'solana', ...params } = body;
 
     switch (action) {
       case 'wallet-exists':
         return await handleWalletExists(params);
       
       case 'wallet-info':
-        return await handleWalletInfo(params);
+        return await handleWalletInfo(params, chain);
       
       case 'wallet-balance':
-        return await handleWalletBalance(params);
+        return await handleWalletBalance(params, chain);
       
       case 'health-check':
-        return await handleHealthCheck();
+        return await handleHealthCheck(chain);
       
       case 'initialize-wallet':
-        return await handleInitializeWallet(params);
+        return await handleInitializeWallet(params, chain);
       
       case 'verify-pin':
-        return await handleVerifyPin(params);
+        return await handleVerifyPin(params, chain);
       
       case 'set-alias':
-        return await handleSetAlias(params);
+        return await handleSetAlias(params, chain);
       
       case 'send-funds':
-        return await handleSendFunds(params);
+        return await handleSendFunds(params, chain);
       
       case 'deposit-funds':
-        return await handleDepositFunds(params);
+        return await handleDepositFunds(params, chain);
       
       default:
         return NextResponse.json(
@@ -112,369 +90,183 @@ async function handleWalletExists(params: { sim?: string }) {
   }
 }
 
-async function handleWalletInfo(params: { sim?: string }) {
-  try {
-    const { sim } = params;
-    if (!sim) {
-      return NextResponse.json(
-        { success: false, error: 'SIM number required' },
-        { status: 400 }
-      );
-    }
-
-    // Get wallet from database
-    const wallet = await WalletDatabase.findWalletBySim(sim);
-    if (!wallet) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get balance from blockchain
-    const client = getClient();
-    const balance = await client.checkBalance({ sim, country: wallet.country });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        sim,
-        balance,
-        exists: true,
-        alias: wallet.alias || 'unknown',
-        walletAddress: wallet.walletAddress,
-        message: 'Wallet info retrieved successfully'
-      }
-    });
-
-  } catch (error: unknown) {
-    console.error('Wallet info failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+async function handleWalletInfo(params: { sim?: string }, chain: string) {
+  const { sim } = params;
+  if (!sim) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'SIM number required' },
+      { status: 400 }
+    );
+  }
+  try {
+    const walletInfo = await chainManager.getWalletInfo(chain, sim);
+    return NextResponse.json({ success: true, data: walletInfo });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-async function handleWalletBalance(params: { sim?: string }) {
-  try {
-    const { sim } = params;
-    if (!sim) {
-      return NextResponse.json(
-        { success: false, error: 'SIM number required' },
-        { status: 400 }
-      );
-    }
-
-    // Get wallet from database
-    const wallet = await WalletDatabase.findWalletBySim(sim);
-    if (!wallet) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get balance from blockchain
-    const client = getClient();
-    const balance = await client.checkBalance({ sim, country: wallet.country });
-
-    return NextResponse.json({
-      success: true,
-      data: { balance, currency: 'SOL' }
-    });
-
-  } catch (error: unknown) {
-    console.error('Wallet balance failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+async function handleWalletBalance(params: { sim?: string }, chain: string) {
+  const { sim } = params;
+  if (!sim) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'SIM number required' },
+      { status: 400 }
+    );
+  }
+  try {
+    const balance = await chainManager.executeOperation({
+      type: 'checkBalance',
+      targetChain: chain,
+      sim,
+      pin: '',
+      params: {}
+    });
+    return NextResponse.json({ success: true, data: { balance } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-async function handleHealthCheck() {
+async function handleHealthCheck(chain: string) {
   try {
-    const client = getClient();
-    const isConnected = await client.testConnection();
-    
-    return NextResponse.json({
-      success: true,
-      data: {
-        connected: isConnected,
-        programId: PROGRAM_ID,
-        message: 'Health check completed'
-      }
-    });
-
-  } catch (error: unknown) {
-    console.error('Health check failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    const connected = await chainManager.testChainConnection(chain);
+    return NextResponse.json({ success: true, data: { connected, chain } });
+  } catch (error) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-async function handleInitializeWallet(params: { sim?: string, pin?: string }) {
-  try {
-    const { sim, pin } = params;
-    if (!sim || !pin) {
-      return NextResponse.json(
-        { success: false, error: 'SIM number and PIN required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate phone number format
-    if (!PhoneEncryption.validatePhoneNumber(sim)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid phone number format' },
-        { status: 400 }
-      );
-    }
-
-    // Validate PIN format
-    if (!/^[0-9]{6}$/.test(pin)) {
-      return NextResponse.json(
-        { success: false, error: 'PIN must be exactly 6 digits' },
-        { status: 400 }
-      );
-    }
-
-    // Check if wallet already exists
-    const existingWallet = await WalletDatabase.findWalletBySim(sim);
-    if (existingWallet) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet already exists for this phone number' },
-        { status: 409 }
-      );
-    }
-
-    // Create wallet on blockchain
-    const client = getClient();
-    const transactionSignature = await client.initializeWallet({ 
-      sim, 
-      pin, 
-      country: 'RW' 
-    });
-
-    // Log successful wallet creation
-    await ErrorLogger.log({
-      action: 'WALLET_CREATED',
-      alias: 'NEW_WALLET',
-      errorMessage: 'Wallet created successfully',
-      metadata: {
-        sim,
-        country: 'RW'
-      }
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        success: true,
-        signature: transactionSignature,
-        message: 'Wallet initialized successfully'
-      }
-    });
-
-  } catch (error: unknown) {
-    console.error('Wallet initialization failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    
-    // Log error
-    await ErrorLogger.log({
-      action: 'WALLET_CREATION_ERROR',
-      alias: 'NEW_WALLET',
-      errorMessage: errorMessage,
-      metadata: {
-        sim: params.sim
-      }
-    });
-    
+async function handleInitializeWallet(params: { sim?: string, pin?: string }, chain: string) {
+  const { sim, pin } = params;
+  if (!sim || !pin) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'SIM number and PIN required' },
+      { status: 400 }
+    );
+  }
+  try {
+    const signature = await chainManager.executeOperation({
+      type: 'initializeWallet',
+      targetChain: chain,
+      sim,
+      pin,
+      params: {}
+    });
+    return NextResponse.json({ success: true, data: { signature } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-async function handleVerifyPin(params: { sim?: string, pin?: string }) {
-  try {
-    const { sim, pin } = params;
-    if (!sim || !pin) {
-      return NextResponse.json(
-        { success: false, error: 'SIM number and PIN required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate PIN format
-    if (!/^[0-9]{6}$/.test(pin)) {
-      return NextResponse.json(
-        { success: false, error: 'PIN must be exactly 6 digits' },
-        { status: 400 }
-      );
-    }
-
-    // Check if wallet exists
-    const wallet = await WalletDatabase.findWalletBySim(sim);
-    if (!wallet) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet not found' },
-        { status: 404 }
-      );
-    }
-
-    // For now, we'll accept any 6-digit PIN since we don't store PINs
-    // In a real implementation, you'd verify against stored PIN hash
-    return NextResponse.json({
-      success: true,
-      data: { verified: true }
-    });
-
-  } catch (error: unknown) {
-    console.error('PIN verification failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+async function handleVerifyPin(params: { sim?: string, pin?: string }, chain: string) {
+  const { sim, pin } = params;
+  if (!sim || !pin) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'SIM number and PIN required' },
+      { status: 400 }
+    );
+  }
+  try {
+    const isValid = await chainManager.executeOperation({
+      type: 'validatePin',
+      targetChain: chain,
+      sim,
+      pin,
+      params: {}
+    });
+    return NextResponse.json({ success: true, data: { isValid } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-async function handleSetAlias(params: { sim?: string, alias?: string }) {
-  try {
-    const { sim, alias } = params;
-    if (!sim || !alias) {
-      return NextResponse.json(
-        { success: false, error: 'SIM number and alias required' },
-        { status: 400 }
-      );
-    }
-
-    // Get wallet from database
-    const wallet = await WalletDatabase.findWalletBySim(sim);
-    if (!wallet) {
-      return NextResponse.json(
-        { success: false, error: 'Wallet not found' },
-        { status: 404 }
-      );
-    }
-
-    // Update alias on blockchain
-    const client = getClient();
-    const transactionSignature = await client.setAlias({ 
-      sim, 
-      alias, 
-      country: wallet.country 
-    });
-
-    // Update alias in database
-    await WalletDatabase.updateWalletAlias(sim, alias);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        success: true,
-        signature: transactionSignature,
-        message: 'Alias updated successfully'
-      }
-    });
-
-  } catch (error: unknown) {
-    console.error('Set alias failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+async function handleSetAlias(params: { sim?: string, alias?: string, pin?: string }, chain: string) {
+  const { sim, alias, pin } = params;
+  if (!sim || !alias || !pin) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'SIM number, alias, and PIN required' },
+      { status: 400 }
+    );
+  }
+  try {
+    const result = await chainManager.executeOperation({
+      type: 'setAlias',
+      targetChain: chain,
+      sim,
+      pin,
+      params: { alias }
+    });
+    return NextResponse.json({ success: true, data: { result } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-async function handleSendFunds(params: { fromSim?: string, toSim?: string, amount?: number, pin?: string }) {
-  try {
-    const { fromSim, toSim, amount, pin } = params;
-    if (!fromSim || !toSim || !amount || !pin) {
-      return NextResponse.json(
-        { success: false, error: 'All parameters required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate PIN format
-    if (!/^[0-9]{6}$/.test(pin)) {
-      return NextResponse.json(
-        { success: false, error: 'PIN must be exactly 6 digits' },
-        { status: 400 }
-      );
-    }
-
-    // Send funds on blockchain
-    const client = getClient();
-    const transactionSignature = await client.sendFunds({ 
-      fromSim, 
-      toSim, 
-      amount, 
-      fromCountry: 'RW',
-      toCountry: 'RW'
-    });
-
-      return NextResponse.json({
-        success: true,
-        data: { 
-        success: true,
-        signature: transactionSignature,
-        message: 'Funds sent successfully'
-      }
-    });
-
-  } catch (error: unknown) {
-    console.error('Send funds failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+async function handleSendFunds(params: { fromSim?: string, toSim?: string, amount?: number, pin?: string }, chain: string) {
+  const { fromSim, toSim, amount, pin } = params;
+  if (!fromSim || !toSim || !amount || !pin) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'All parameters required' },
+      { status: 400 }
+    );
+  }
+  try {
+    const tx = await chainManager.executeOperation({
+      type: 'sendFunds',
+      targetChain: chain,
+      sim: fromSim,
+      pin,
+      params: { from: fromSim, to: toSim, amount: amount.toString() }
+    });
+    return NextResponse.json({ success: true, data: { tx } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }
 }
 
-async function handleDepositFunds(params: { sim?: string, amount?: number }) {
-  try {
-    const { sim, amount } = params;
-    if (!sim || !amount) {
-      return NextResponse.json(
-        { success: false, error: 'SIM number and amount required' },
-        { status: 400 }
-      );
-    }
-
-    // Deposit funds on blockchain
-    const client = getClient();
-    const transactionSignature = await client.depositFunds({ 
-      sim, 
-      amount, 
-      country: 'RW'
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        success: true,
-        signature: transactionSignature,
-        message: 'Funds deposited successfully'
-      }
-    });
-
-  } catch (error: unknown) {
-    console.error('Deposit funds failed:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+async function handleDepositFunds(params: { sim?: string, amount?: number, pin?: string }, chain: string) {
+  const { sim, amount, pin } = params;
+  if (!sim || !amount || !pin) {
     return NextResponse.json(
-      { success: false, error: errorMessage },
+      { success: false, error: 'SIM number, amount, and PIN required' },
+      { status: 400 }
+    );
+  }
+  try {
+    // For deposit, we treat as sendFunds from a relayer/admin to the user
+    const tx = await chainManager.executeOperation({
+      type: 'sendFunds',
+      targetChain: chain,
+      sim,
+      pin,
+      params: { from: 'relayer', to: sim, amount: amount.toString() }
+    });
+    return NextResponse.json({ success: true, data: { tx } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
       { status: 500 }
     );
   }

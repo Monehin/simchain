@@ -13,10 +13,17 @@
     "test:ci": "jest --ci --coverage --watchAll=false"
   },
   "dependencies": {
+    "@hyperbridge/sdk": "^1.0.0",
+    "@polkadot/api": "^16.4.1",
+    "@polkadot/keyring": "^13.5.3",
+    "@polkadot/util": "^13.5.3",
+    "@polkadot/util-crypto": "^13.5.3",
+    "@polytope-labs/hyperclient": "^1.2.0",
     "@prisma/client": "^6.11.1",
     "@solana/kit": "^2.3.0",
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.2",
+    "ethers": "^6.15.0",
     "google-libphonenumber": "^3.2.42",
     "next": "15.3.5",
     "prisma": "^6.11.1",

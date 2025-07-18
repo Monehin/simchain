@@ -2,8 +2,7 @@
 
 import React from "react";
 import Image from 'next/image';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface USSDState {
   isActive: boolean;
@@ -19,7 +18,7 @@ interface USSDState {
   isAuthenticated: boolean;
 }
 
-export default function USSDSimulator() {
+export default function USSDDemo() {
   const [state, setState] = useState<USSDState>({
     isActive: false,
     mobileNumber: '',
@@ -36,6 +35,11 @@ export default function USSDSimulator() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Check if wallet exists using the wallet-exists endpoint
   const checkWalletExists = async (mobileNumber: string): Promise<boolean> => {
@@ -515,8 +519,9 @@ New alias: ${alias}
   const showServicesMenu = () => {
     setState(prev => ({
       ...prev,
+      currentMenu: 'services',
       messages: [`
-Services
+Services Menu
 1. Health Check
 2. Help
 0. Back to Main Menu
@@ -534,6 +539,7 @@ Services
         showHelp();
         break;
       case '0':
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
         showMainMenu();
         break;
       default:
@@ -553,21 +559,21 @@ Services
         addMessage(`
 ✅ System Status: Healthy
 Database: Connected
-Solana: Connected
-Services: Operational
+Blockchain: Connected
+API: Operational
 
 1. Back to Services
-0. Back to Main Menu
+0. Main Menu
         `.trim());
         setState(prev => ({ ...prev, currentMenu: 'health_result' }));
       } else {
-        addMessage(`❌ System Status: Issues detected\n${result.error || 'Unknown error'}`);
-        setState(prev => ({ ...prev, currentMenu: 'main' }));
+        addMessage('❌ System check failed. Please try again later.');
+        setState(prev => ({ ...prev, currentMenu: 'services' }));
       }
     } catch (error) {
       setIsLoading(false);
       addMessage('❌ Network error. Try again.');
-      setState(prev => ({ ...prev, currentMenu: 'main' }));
+      setState(prev => ({ ...prev, currentMenu: 'services' }));
     }
   };
 
@@ -576,13 +582,12 @@ Services: Operational
     addMessage(`
 Help & Support
 - Dial *906# to access Simchain
-- Use number keys to navigate menus
-- Enter 0 to go back or exit
-- Keep your PIN secure
+- Use 6-digit PIN for security
+- Keep your PIN private
 - Contact support for issues
 
 1. Back to Services
-0. Back to Main Menu
+0. Main Menu
     `.trim());
     setState(prev => ({ ...prev, currentMenu: 'help_result' }));
   };
@@ -590,14 +595,16 @@ Help & Support
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isLoading) return;
+
+    const selection = input.trim();
+    setInput('');
 
     if (state.currentMenu === 'pin' || state.currentMenu === 'register_pin') {
-      handlePinValidation(input);
+      handlePinValidation(selection);
     } else {
-      handleMenuSelection(input);
+      handleMenuSelection(selection);
     }
-    setInput('');
   };
 
   // Add message to display
@@ -624,61 +631,71 @@ Help & Support
       isAuthenticated: false,
     });
     setInput('');
+    setIsLoading(false);
   };
 
-  // Cross-chain conversion handlers
+  // Handle convert source token
   const handleConvertSourceToken = (selection: string) => {
-    let sourceToken = '';
-    if (selection === '1') sourceToken = 'SOL';
-    else if (selection === '2') sourceToken = 'DOT';
-    else {
+    if (selection === '1') {
+      setState(prev => ({ 
+        ...prev, 
+        currentMenu: 'convert_target_token',
+        tempData: { ...prev.tempData, sourceToken: 'SOL' }
+      }));
+      addMessage('Select target token:\n1. DOT\n2. SOL');
+    } else if (selection === '2') {
+      setState(prev => ({ 
+        ...prev, 
+        currentMenu: 'convert_target_token',
+        tempData: { ...prev.tempData, sourceToken: 'DOT' }
+      }));
+      addMessage('Select target token:\n1. SOL\n2. DOT');
+    } else {
       addMessage('❌ Invalid selection. Try again:');
-      return;
     }
-    setState(prev => ({
-      ...prev,
-      currentMenu: 'convert_target_token',
-      tempData: { ...prev.tempData, sourceToken }
-    }));
-    addMessage('Select target token:\n1. SOL\n2. DOT');
   };
 
+  // Handle convert target token
   const handleConvertTargetToken = (selection: string) => {
+    const { sourceToken } = state.tempData;
     let targetToken = '';
-    if (selection === '1') targetToken = 'SOL';
-    else if (selection === '2') targetToken = 'DOT';
-    else {
-      addMessage('❌ Invalid selection. Try again:');
+    
+    if (sourceToken === 'SOL') {
+      targetToken = selection === '1' ? 'DOT' : 'SOL';
+    } else {
+      targetToken = selection === '1' ? 'SOL' : 'DOT';
+    }
+    
+    if (sourceToken === targetToken) {
+      addMessage('❌ Source and target tokens must be different. Try again:');
       return;
     }
-    // Prevent same token
-    if (targetToken === state.tempData.sourceToken) {
-      addMessage('❌ Source and target tokens must be different.');
-      setState(prev => ({ ...prev, currentMenu: 'convert_source_token' }));
-      return;
-    }
-    setState(prev => ({
-      ...prev,
+    
+    setState(prev => ({ 
+      ...prev, 
       currentMenu: 'convert_amount',
       tempData: { ...prev.tempData, targetToken }
     }));
-    addMessage('Enter amount to convert:');
+    addMessage(`Enter amount of ${sourceToken} to convert:`);
   };
 
+  // Handle convert amount
   const handleConvertAmount = (amount: string) => {
     const numAmount = parseFloat(amount);
     if (isNaN(numAmount) || numAmount <= 0) {
       addMessage('❌ Invalid amount. Enter a positive number:');
       return;
     }
+    
     setState(prev => ({
       ...prev,
-      currentMenu: 'convert_quote',
       tempData: { ...prev.tempData, amount: numAmount }
     }));
+    
     fetchConversionQuote(numAmount);
   };
 
+  // Fetch conversion quote
   const fetchConversionQuote = async (amount: number) => {
     setIsLoading(true);
     const { sourceToken, targetToken } = state.tempData;
@@ -705,6 +722,7 @@ Help & Support
     }
   };
 
+  // Handle convert confirm
   const handleConvertConfirm = async (selection: string) => {
     if (selection === '1') {
       // Proceed with conversion
@@ -742,61 +760,68 @@ Help & Support
     }
   };
 
-  return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      {/* Instructions Panel - Left Side */}
-      <div className="mr-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg shadow-lg p-6 max-w-sm border border-blue-200">
-        <h3 className="font-semibold text-gray-800 mb-3">📱 USSD Instructions:</h3>
-        <ul className="text-sm text-gray-600 space-y-2">
-          <li>• Enter mobile number and dial *906#</li>
-          <li>• New users: Register with 6-digit PIN</li>
-          <li>• Existing users: Enter your PIN</li>
-          <li>• Navigate with number keys (1, 2, 3...)</li>
-          <li>• Use "0" to exit or go back</li>
-        </ul>
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-2 sm:p-4">
+        <div className="text-gray-600">Loading...</div>
       </div>
+    );
+  }
 
-      {/* Feature Phone Frame - Centered */}
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center p-2 sm:p-4">
+      {/* iPhone 15 Frame - Responsive */}
       <div className="relative flex-shrink-0">
-        {/* Phone Body - Nokia-style feature phone */}
-        <div className="w-96 h-[650px] bg-gray-800 rounded-2xl shadow-2xl border-4 border-gray-700 relative overflow-hidden">
-          {/* Antenna */}
-          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-1 h-3 bg-gray-600"></div>
-          
-          {/* Speaker */}
-          <div className="absolute top-3 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-gray-600 rounded-full"></div>
+        {/* Phone Body - iPhone 15 */}
+        <div className="w-80 h-[640px] sm:w-96 sm:h-[768px] md:w-[28rem] md:h-[896px] lg:w-[32rem] lg:h-[1024px] bg-black rounded-[2rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl border-4 sm:border-8 border-gray-800 relative overflow-hidden">
+          {/* Dynamic Island */}
+          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 sm:w-32 h-6 sm:h-8 bg-black rounded-b-2xl sm:rounded-b-3xl z-10"></div>
           
           {/* Screen */}
-          <div className="absolute top-8 left-2 right-2 bottom-40 bg-gray-900 border-2 border-gray-600 rounded-lg">
+          <div className="absolute top-8 sm:top-10 left-2 sm:left-3 right-2 sm:right-3 bottom-8 sm:bottom-12 bg-black rounded-[1.5rem] sm:rounded-[2rem]">
+            {/* Status Bar */}
+            <div className="flex justify-between items-center text-white text-xs sm:text-sm px-4 py-2">
+              <span className="font-semibold">9:41</span>
+              <div className="flex items-center gap-1">
+                <div className="flex gap-0.5">
+                  <div className="w-0.5 sm:w-1 h-2 sm:h-3 bg-white rounded-sm"></div>
+                  <div className="w-0.5 sm:w-1 h-2 sm:h-3 bg-white rounded-sm"></div>
+                  <div className="w-0.5 sm:w-1 h-2 sm:h-3 bg-white rounded-sm"></div>
+                  <div className="w-0.5 sm:w-1 h-2 sm:h-3 bg-white rounded-sm"></div>
+                </div>
+                <span className="text-xs ml-1">100%</span>
+              </div>
+            </div>
+            
             {!state.isActive ? (
               /* Phone Number Input Screen */
-              <div className="h-full flex flex-col justify-center items-center px-4">
-                <div className="text-center mb-6">
-                  <div className="mb-3">
+              <div className="h-full flex flex-col justify-center items-center px-3 sm:px-4 mt-8 sm:mt-10">
+                <div className="text-center mb-4 sm:mb-6">
+                  <div className="mb-2 sm:mb-3">
                     <Image 
                       src="/Logo.png" 
                       alt="Simchain Logo" 
-                      width={64} 
-                      height={64} 
-                      className="mx-auto"
+                      width={48} 
+                      height={48} 
+                      className="mx-auto sm:w-16 sm:h-16"
                       priority
                     />
                   </div>
-                  <h1 className="text-white text-xl font-bold mb-2">USSD Simulator</h1>
-                  <p className="text-gray-400 text-sm">Simchain Wallet</p>
+                  <h1 className="text-white text-lg sm:text-xl font-bold mb-1 sm:mb-2">USSD Simulator Demo</h1>
+                  <p className="text-gray-400 text-xs sm:text-sm">Simchain Wallet</p>
                 </div>
                 
-                <div className="w-full space-y-4">
+                <div className="w-full space-y-3 sm:space-y-4">
                   <input
                     type="tel"
                     value={state.mobileNumber}
                     onChange={(e) => setState(prev => ({ ...prev, mobileNumber: e.target.value }))}
                     placeholder="Enter mobile number"
-                    className="w-full p-4 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-center text-base"
+                    className="w-full p-3 sm:p-4 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-center text-sm sm:text-base"
                   />
                   <button
                     onClick={handleDial}
-                    className="w-full bg-blue-600 text-white py-4 px-6 rounded hover:bg-blue-700 transition-colors font-semibold text-base"
+                    className="w-full bg-blue-600 text-white py-3 sm:py-4 px-6 rounded hover:bg-blue-700 transition-colors font-semibold text-sm sm:text-base"
                   >
                     Dial *906#
                   </button>
@@ -806,77 +831,61 @@ Help & Support
               /* USSD Session Screen */
               <div className="h-full flex flex-col">
                 {/* Session Header */}
-                <div className="px-3 py-2 bg-gray-800 border-b border-gray-600">
-                  <div className="text-sm text-gray-400">
+                <div className="px-2 sm:px-3 py-1 sm:py-2 bg-gray-800 border-b border-gray-600 flex-shrink-0">
+                  <div className="text-xs sm:text-sm text-gray-400">
                     <span>Number: {state.mobileNumber}</span>
                     <span className="float-right">{state.isRegistered ? 'Registered' : 'New'}</span>
                   </div>
                 </div>
 
-                {/* USSD Display */}
-                <div className="flex-1 p-3 bg-black text-green-400 font-mono text-sm overflow-y-auto">
+                {/* USSD Display - Scrollable area */}
+                <div className="flex-1 p-2 sm:p-3 bg-black text-green-400 font-mono text-xs sm:text-sm overflow-y-auto min-h-0">
                   {state.messages.map((message, index) => (
-                    <div key={index} className="mb-2 whitespace-pre-line leading-relaxed">
+                    <div key={index} className="mb-1 sm:mb-2 whitespace-pre-line leading-tight sm:leading-relaxed">
                       {message}
                     </div>
                   ))}
                   {isLoading && (
                     <div className="text-yellow-400 animate-pulse">⏳ Processing...</div>
                   )}
-                </div>
-
-                {/* Input Area */}
-                <div className="p-3 bg-gray-800 border-t border-gray-600">
-                  <form onSubmit={handleSubmit} className="space-y-3">
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Enter choice..."
-                      className="w-full p-3 bg-black border border-gray-600 rounded text-green-400 font-mono focus:border-green-500 focus:outline-none text-center text-sm"
-                      disabled={isLoading}
-                    />
-                    <div className="flex space-x-2">
-                      <button
-                        type="submit"
+                  
+                  {/* Input Area - Positioned after content */}
+                  <div className="mt-4 p-2 sm:p-3 bg-gray-800 border border-gray-600 rounded">
+                    <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-3">
+                      <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Enter choice..."
+                        className="w-full p-2 sm:p-3 bg-black border border-gray-600 rounded text-green-400 font-mono focus:border-green-500 focus:outline-none text-center text-xs sm:text-sm"
                         disabled={isLoading}
-                        className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors disabled:opacity-50 font-semibold text-sm"
-                      >
-                        Send
-                      </button>
-                      <button
-                        type="button"
-                        onClick={endSession}
-                        className="flex-1 bg-red-600 text-white py-3 px-4 rounded hover:bg-red-700 transition-colors font-semibold text-sm"
-                      >
-                        End
-                      </button>
-                    </div>
-                  </form>
+                      />
+                      <div className="flex space-x-2">
+                        <button
+                          type="submit"
+                          disabled={isLoading}
+                          className="flex-1 bg-green-600 text-white py-2 sm:py-3 px-3 sm:px-4 rounded hover:bg-green-700 transition-colors disabled:opacity-50 font-semibold text-xs sm:text-sm"
+                        >
+                          Send
+                        </button>
+                        <button
+                          type="button"
+                          onClick={endSession}
+                          className="flex-1 bg-red-600 text-white py-2 sm:py-3 px-3 sm:px-4 rounded hover:bg-red-700 transition-colors font-semibold text-xs sm:text-sm"
+                        >
+                          End
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-
-          {/* Physical Keypad */}
-          <div className="absolute bottom-3 left-3 right-3 h-36 bg-gray-700 rounded-lg p-3">
-            <div className="grid grid-cols-3 gap-2 h-full">
-              {/* Number keys 1-9 */}
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                <div key={num} className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">
-                  {num}
-                </div>
-              ))}
-              {/* Bottom row: *, 0, # */}
-              <div className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">*</div>
-              <div className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">0</div>
-              <div className="bg-gray-600 rounded flex items-center justify-center text-white text-lg font-bold">#</div>
-            </div>
-          </div>
         </div>
 
         {/* Phone Shadow */}
-        <div className="absolute -bottom-3 left-1/2 transform -translate-x-1/2 w-80 h-4 bg-black opacity-20 rounded-full blur-lg"></div>
+        <div className="absolute -bottom-2 sm:-bottom-3 left-1/2 transform -translate-x-1/2 w-64 sm:w-80 h-3 sm:h-4 bg-black opacity-20 rounded-full blur-lg"></div>
       </div>
     </div>
   );

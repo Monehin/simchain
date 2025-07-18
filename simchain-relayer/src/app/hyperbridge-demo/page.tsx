@@ -219,7 +219,7 @@ export default function HyperbridgeDemo() {
                   value={storageForm.storageKey}
                   onChange={(e) => setStorageForm(prev => ({ ...prev, storageKey: e.target.value }))}
                   placeholder="0x1234...:0x0lances.freeBalance:address"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <button
@@ -253,7 +253,7 @@ export default function HyperbridgeDemo() {
                   value={oracleForm.sourceDEX}
                   onChange={(e) => setOracleForm(prev => ({ ...prev, sourceDEX: e.target.value }))}
                   placeholder="uniswap_v3"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <div>
@@ -265,7 +265,7 @@ export default function HyperbridgeDemo() {
                   value={oracleForm.tokenPair}
                   onChange={(e) => setOracleForm(prev => ({ ...prev, tokenPair: e.target.value }))}
                   placeholder="ETH/USDC"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <div>
@@ -276,7 +276,7 @@ export default function HyperbridgeDemo() {
                   type="number"
                   value={oracleForm.updateInterval}
                   onChange={(e) => setOracleForm(prev => ({ ...prev, updateInterval: parseInt(e.target.value) }))}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <button
@@ -310,7 +310,7 @@ export default function HyperbridgeDemo() {
                   value={identityForm.userAddress}
                   onChange={(e) => setIdentityForm(prev => ({ ...prev, userAddress: e.target.value }))}
                   placeholder="042d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <div>
@@ -322,7 +322,7 @@ export default function HyperbridgeDemo() {
                   value={identityForm.chains.join(', ')}
                   onChange={(e) => setIdentityForm(prev => ({ ...prev, chains: e.target.value.split(',').map(s => s.trim()) }))}
                   placeholder="ethereum, polkadot, solana"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <div className="flex space-x-4">
@@ -406,7 +406,7 @@ export default function HyperbridgeDemo() {
                   value={transferForm.fromAddress}
                   onChange={(e) => setTransferForm(prev => ({ ...prev, fromAddress: e.target.value }))}
                   placeholder="042d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <div>
@@ -418,7 +418,7 @@ export default function HyperbridgeDemo() {
                   value={transferForm.toAddress}
                   onChange={(e) => setTransferForm(prev => ({ ...prev, toAddress: e.target.value }))}
                   placeholder="5GrwvaEF5Xb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -431,7 +431,7 @@ export default function HyperbridgeDemo() {
                     value={transferForm.amount}
                     onChange={(e) => setTransferForm(prev => ({ ...prev, amount: e.target.value }))}
                     placeholder="1.0"
-                    className="w-full p-2 border border-gray-300 rounded-md"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                   />
                 </div>
                 <div>
@@ -443,7 +443,7 @@ export default function HyperbridgeDemo() {
                     value={transferForm.token}
                     onChange={(e) => setTransferForm(prev => ({ ...prev, token: e.target.value }))}
                     placeholder="ETH"
-                    className="w-full p-2 border border-gray-300 rounded-md"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
                   />
                 </div>
               </div>

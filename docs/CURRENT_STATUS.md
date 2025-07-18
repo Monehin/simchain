@@ -5,7 +5,7 @@
 **Status:** ✅ **PRODUCTION READY**
 
 ## 🎯 System Overview
-SIMChain is a fully operational mobile money platform built on Solana blockchain with encrypted phone number storage, unique alias generation, and real on-chain transactions.
+SIMChain is a fully operational wallet platform built on Solana blockchain with encrypted phone number storage, unique alias generation, and real on-chain transactions.
 
 ## 📊 Current Metrics
 

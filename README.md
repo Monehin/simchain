@@ -1,6 +1,6 @@
-# SIMChain - Mobile Money on Solana
+# SIMChain 
 
-A full-stack Solana blockchain system enabling smart contract wallets derived from SIM card numbers for mobile money transfers via USSD gateways.
+A full-stack Solana blockchain system enabling smart contract wallets derived from SIM card numbers for transfers via USSD gateways.
 
 ## 🚀 Status: Production Ready
 

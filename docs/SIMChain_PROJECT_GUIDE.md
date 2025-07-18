@@ -1,7 +1,7 @@
 # SIMChain Project Guide
 
 ## Project Overview
-SIMChain is a full-stack Solana blockchain system that enables smart contract wallets derived from SIM card numbers for mobile money transfers via USSD gateways. The system provides encrypted phone number storage, unique alias generation, and real on-chain transactions.
+SIMChain is a full-stack Solana blockchain system that enables smart contract wallets derived from SIM card numbers via USSD gateways. The system provides encrypted phone number storage, unique alias generation, and real on-chain transactions.
 
 ## Architecture
 

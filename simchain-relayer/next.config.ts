@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  images: {
+    domains: ['simchain-k5v5.vercel.app', 'simchain.app'],
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;

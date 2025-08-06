@@ -169,4 +169,80 @@ For detailed setup instructions, troubleshooting, and advanced features, see the
 
 **Built with:** Solana, Rust, TypeScript, Next.js, Prisma, PostgreSQL  
 **License:** MIT  
-**Status:** �� Production Ready 
+**Status:** ✅ Production Ready 
+
+---
+
+## Why This Happens
+
+- The frontend in `crosschain-hyperbridge/frontend` is trying to call `/api/check-balance` on a backend.
+- Your relayer-script (Express server) in `crosschain-hyperbridge/relayer-script` is the only backend you want to use.
+- If the frontend is pointing to the wrong port (3000 or 3001), or the relayer-script is not running, or the endpoint is missing, you’ll get “Failed to fetch balance”.
+
+---
+
+## How to Fix
+
+### 1. Make Sure the Relayer is Running
+
+From your project root:
+```bash
+cd crosschain-hyperbridge/relayer-script
+node index.js
+```
+You should see:  
+`🚀 Crosschain Hyperbridge Relayer running on port 3002`
+
+---
+
+### 2. Make Sure the Frontend is Pointing to Port 3002
+
+In `crosschain-hyperbridge/frontend/src/simchainRelayer.ts`, your balance function should look like:
+```typescript
+export async function getWalletBalance(sim: string, pin: string) {
+  const res = await fetch('http://localhost:3002/api/check-balance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sim, pin })
+  });
+  if (!res.ok) throw new Error('Failed to fetch balance');
+  return res.json();
+}
+```
+If it’s pointing to port 3000 or 3001, change it to 3002.
+
+---
+
+### 3. Test the Endpoint Directly
+
+Try this in your terminal:
+```bash
+curl -X POST http://localhost:3002/api/check-balance \
+  -H "Content-Type: application/json" \
+  -d '{"sim":"mysim","pin":"1234"}'
+```
+You should get a JSON response with balances.  
+If you get an error, check the terminal where your relayer-script is running for error messages.
+
+---
+
+### 4. If You Don’t Want Balance at All
+
+- Remove the “Check Wallet Balance” section from your frontend UI and any calls to `getWalletBalance`.
+
+---
+
+## Summary Table
+
+| What to Check                | What to Do/Expect                                 |
+|------------------------------|---------------------------------------------------|
+| Relayer running on port 3002 | `node index.js` in relayer-script                |
+| Frontend API URLs            | Use `http://localhost:3002/api/check-balance`    |
+| Test with curl               | Should get a JSON response, not an error         |
+| Don’t want balance?          | Remove balance UI and function from frontend     |
+
+---
+
+**If you want to keep the balance feature, make sure the frontend and relayer are using the same port and endpoint. If you want to remove it, delete the balance code from your frontend.**
+
+If you want, I can update the code for you—just let me know if you want to keep or remove the balance feature! 

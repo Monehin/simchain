@@ -9,8 +9,9 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@solana/web3.js": "^1.87.6",
     "@solana/spl-token": "^0.4.0",
+    "@solana/web3.js": "^1.87.6",
+    "axios": "^1.10.0",
     "google-libphonenumber": "^3.2.42",
     "ts-node": "^10.9.2"
   },

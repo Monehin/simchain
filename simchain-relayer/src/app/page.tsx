@@ -1,6 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import RoadmapBox from './components/RoadmapBox';
 
 export default function Home() {
   return (
@@ -242,9 +243,9 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-light text-gray-900 mb-4">
-              <span className="font-semibold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
-                Development Roadmap
-              </span>
+                                      <span className="font-semibold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                          UX Development Roadmap
+                        </span>
             </h2>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
               Our plan proposal for the UX team - strategic enhancements based on UX bounty feedback and user research
@@ -252,47 +253,30 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {[
-              {
-                icon: "📱",
-                title: "Web/Mobile App Development",
-                desc: "Build web application with responsive design and improved UX, with potential for mobile app development based on user needs.",
-                features: ["Enhanced onboarding experience", "Rich transaction history", "Advanced wallet management", "Push notifications"],
-                gradient: "from-blue-50 to-purple-50",
-                border: "blue-200"
-              },
-              {
-                icon: "⚡",
-                title: "Simplified Flows",
-                desc: "Streamlined step-by-step processes for wallet creation, transfers, and account management to reduce friction and improve user success rates.",
-                features: ["Quick wallet creation", "Smart recipient detection", "Automated error recovery", "Contextual help system"],
-                gradient: "from-purple-50 to-pink-50",
-                border: "purple-200"
-              },
-              {
-                icon: "📧",
-                title: "SMS Notifications",
-                desc: "Real-time SMS notifications for transaction confirmations, security alerts, and important account updates to keep users informed.",
-                features: ["Transaction confirmations", "Security alerts", "Account updates", "Balance notifications"],
-                gradient: "from-cyan-50 to-blue-50",
-                border: "cyan-100"
-              }
-            ].map((item, index) => (
-              <div key={index} className={`group p-6 rounded-xl bg-gradient-to-br ${item.gradient} border border-${item.border} hover:border-${item.border.replace('200', '300')} transition-all duration-300 hover:transform hover:scale-105`}>
-                <h3 className="text-lg font-semibold mb-3 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  {item.icon} {item.title}
-                </h3>
-                <p className="text-base text-gray-600 mb-4 leading-relaxed">{item.desc}</p>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  {item.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-center">
-                      <span className="text-blue-500 mr-2">•</span>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            <RoadmapBox
+              icon="📱"
+              title="Web/Mobile App Development"
+              desc="Develop a web-based alternative interface for SIMChain, serving users without USSD integration and those preferring mobile web access."
+              features={["Enhanced onboarding experience", "Rich transaction history", "Advanced wallet management", "Push notifications"]}
+            />
+            <RoadmapBox
+              icon="⚡"
+              title="Simplified Flows"
+              desc="Streamlined step-by-step processes for wallet creation, transfers, and account management to reduce friction and improve user success rates."
+              features={["Quick wallet creation", "Smart recipient detection", "Automated error recovery", "Contextual help system"]}
+            />
+            <RoadmapBox
+              icon="📧"
+              title="SMS Notifications"
+              desc="Real-time SMS notifications for transaction confirmations, security alerts, and important account updates to keep users informed."
+              features={["Transaction confirmations", "Security alerts", "Account updates", "Balance notifications"]}
+            />
+            <RoadmapBox
+              icon="🔍"
+              title="User Research & Testing"
+              desc="Conduct user interviews, usability testing, and prototype validation to ensure the product meets user needs before launch."
+              features={["User interviews and surveys", "Usability testing sessions", "Prototype validation", "Design iteration"]}
+            />
           </div>
         </div>
       </section>

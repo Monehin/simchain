@@ -158,11 +158,11 @@ export default function Home() {
       <section className="relative z-10 py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-light text-gray-900 mb-4">
-              <span className="font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                User Onboarding Journey
-              </span>
-            </h2>
+                                    <h2 className="text-3xl font-light text-gray-900 mb-4">
+                          <span className="font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                            How it works
+                          </span>
+                        </h2>
             <p className="text-base text-gray-600 max-w-2xl mx-auto">
               Simple, intuitive flow designed for users of all technical levels
             </p>

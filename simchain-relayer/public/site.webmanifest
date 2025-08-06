@@ -1,0 +1,26 @@
+{
+  "name": "SIMChain - USSD-First Multichain Wallet Platform",
+  "short_name": "SIMChain",
+  "description": "Revolutionizing blockchain accessibility through USSD technology",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["finance", "utilities"],
+  "lang": "en",
+  "dir": "ltr"
+} 

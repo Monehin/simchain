@@ -66,19 +66,28 @@ export default function Home() {
               </p>
             </div>
             
-            {/* Modern CTA Buttons */}
-            <div className="flex justify-center mb-20">
-              <Link 
-                href="/ussd" 
-                className="group relative px-8 py-3 rounded-xl font-semibold text-base overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 hover:from-blue-700 hover:via-purple-700 hover:to-cyan-700 transition-all duration-500 shadow-xl hover:shadow-2xl transform hover:scale-105 text-white"
-              >
-                <span className="relative z-10 flex items-center justify-center">
-                  <span className="mr-2 text-lg">🚀</span>
-                  Try SIMChain Demo
-                </span>
-                <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              </Link>
-            </div>
+                                    {/* Modern CTA Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
+                          <Link 
+                            href="/ussd" 
+                            className="group relative px-8 py-3 rounded-xl font-semibold text-base overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-600 hover:from-blue-700 hover:via-purple-700 hover:to-cyan-700 transition-all duration-500 shadow-xl hover:shadow-2xl transform hover:scale-105 text-white"
+                          >
+                            <span className="relative z-10 flex items-center justify-center">
+                              <span className="mr-2 text-lg">🚀</span>
+                              Try SIMChain Demo
+                            </span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                          </Link>
+                          <Link 
+                            href="/vision-paper" 
+                            className="group relative px-8 py-3 rounded-xl font-semibold text-base overflow-hidden bg-white border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition-all duration-500 shadow-xl hover:shadow-2xl transform hover:scale-105"
+                          >
+                            <span className="relative z-10 flex items-center justify-center">
+                              <span className="mr-2 text-lg">📄</span>
+                              Read Vision Paper
+                            </span>
+                          </Link>
+                        </div>
 
             {/* Modern Stats Design */}
             <div className="grid grid-cols-3 gap-12 max-w-3xl mx-auto">

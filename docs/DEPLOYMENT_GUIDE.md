@@ -265,7 +265,7 @@ curl -X POST https://your-vercel-app.vercel.app/api/create-wallet \
 
 ### **5.2 Test USSD Flow**
 1. Visit your Vercel app URL
-2. Navigate to `/ussd` or `/ussd-demo`
+2. Navigate to `/ussd`
 3. Test complete registration flow
 4. Verify wallet creation on devnet
 

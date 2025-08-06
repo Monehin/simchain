@@ -40,7 +40,7 @@
 
 #### **Files Modified**
 - `simchain-relayer/src/app/ussd/page.tsx`
-- `simchain-relayer/src/app/ussd-demo/page.tsx`
+
 - `docs/CURRENT_STATUS.md`
 - `docs/multichain/USSD_FLOW_SPECIFICATION.md`
 - `docs/DEVELOPER_QUICK_REFERENCE.md`

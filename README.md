@@ -54,7 +54,7 @@ SIMChain enables **anyone with a mobile phone** to access Solana, Polkadot, and 
 
 ### **Try It Now:**
 1. **USSD Simulator:** [https://simchain-demo.vercel.app/demo](https://simchain-demo.vercel.app/demo)
-2. **Smartphone Demo:** [https://simchain-demo.vercel.app/ussd-demo](https://simchain-demo.vercel.app/ussd-demo)
+2. **USSD Simulator:** [https://simchain-k5v5.vercel.app/ussd](https://simchain-k5v5.vercel.app/ussd)
 
 ### **Demo Features:**
 - ✅ **Complete USSD flow** - Registration, PIN setup, main menu

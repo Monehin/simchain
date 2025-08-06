@@ -265,9 +265,17 @@ export default function Home() {
                 icon: "⚡",
                 title: "Simplified Flows",
                 desc: "Streamlined step-by-step processes for wallet creation, transfers, and account management to reduce friction and improve user success rates.",
-                features: ["One-tap wallet creation", "Smart recipient detection", "Automated error recovery", "Contextual help system"],
+                features: ["Quick wallet creation", "Smart recipient detection", "Automated error recovery", "Contextual help system"],
                 gradient: "from-purple-50 to-pink-50",
                 border: "purple-200"
+              },
+              {
+                icon: "📧",
+                title: "SMS Notifications",
+                desc: "Real-time SMS notifications for transaction confirmations, security alerts, and important account updates to keep users informed.",
+                features: ["Transaction confirmations", "Security alerts", "Account updates", "Balance notifications"],
+                gradient: "from-cyan-50 to-blue-50",
+                border: "cyan-100"
               }
             ].map((item, index) => (
               <div key={index} className={`group p-6 rounded-xl bg-gradient-to-br ${item.gradient} border border-${item.border} hover:border-${item.border.replace('200', '300')} transition-all duration-300 hover:transform hover:scale-105`}>

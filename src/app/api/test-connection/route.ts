@@ -1,1 +1,0 @@
-import { SimchainClient } from '../../../utils/simchainClient'; 

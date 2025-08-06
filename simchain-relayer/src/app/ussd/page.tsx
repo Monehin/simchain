@@ -37,6 +37,7 @@ export default function USSDSimulator() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isTemporaryScreen, setIsTemporaryScreen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Check if wallet exists using the wallet-exists endpoint
   const checkWalletExists = async (mobileNumber: string): Promise<boolean> => {
@@ -60,14 +61,14 @@ export default function USSDSimulator() {
   // Handle dial code
   const handleDial = () => {
     if (!state.mobileNumber.trim()) {
-      addMessage('❌ Please enter a mobile number first');
+      showError('Please enter a mobile number first');
       return;
     }
 
     // Basic phone number validation
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
     if (!phoneRegex.test(state.mobileNumber.replace(/\s/g, ''))) {
-      addMessage('❌ Invalid mobile number format');
+      showError('Invalid mobile number format');
       return;
     }
 
@@ -1073,6 +1074,23 @@ Select option:
     }));
   };
 
+  const showError = (error: string, isFatal: boolean = false) => {
+    setErrorMessage(error);
+    addMessage(`⚠️ ${error}`);
+    if (isFatal) {
+      addMessage('');
+      addMessage('1 → Try again');
+      addMessage('2 → Main menu');
+      addMessage('0 → Exit');
+      addMessage('');
+      addMessage('Select option:');
+    }
+  };
+
+  const clearError = () => {
+    setErrorMessage(null);
+  };
+
   // End session
   const endSession = () => {
     setState({
@@ -1472,13 +1490,13 @@ Select option:
                     disabled={isLoading}
                     className="w-full p-4 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-center text-base disabled:opacity-50"
                   />
-                  <button
-                    onClick={handleDial}
-                    disabled={isLoading}
-                    className="w-full bg-blue-600 text-white py-4 px-6 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 font-semibold text-base"
-                  >
-                    {isLoading ? 'Processing...' : 'Dial *906#'}
-                  </button>
+                                      <button
+                      onClick={handleDial}
+                      disabled={isLoading}
+                      className="w-full bg-blue-600 text-white py-4 px-6 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 font-semibold text-base"
+                    >
+                      {isLoading ? '⏳' : 'Dial *906#'}
+                    </button>
                 </div>
               </div>
             ) : (
@@ -1500,7 +1518,7 @@ Select option:
                     </div>
                   ))}
                   {isLoading && (
-                    <div className="text-yellow-400 animate-pulse">⏳ Processing...</div>
+                    <div className="text-yellow-400 animate-pulse">⏳</div>
                   )}
                 </div>
 
@@ -1521,7 +1539,7 @@ Select option:
                         disabled={isLoading || isTemporaryScreen}
                         className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors disabled:opacity-50 font-semibold text-sm"
                       >
-                        {isLoading ? 'Processing...' : isTemporaryScreen ? 'Please wait...' : 'Send'}
+                        {isLoading ? '⏳' : isTemporaryScreen ? '⏳' : 'Send'}
                       </button>
                       <button
                         type="button"

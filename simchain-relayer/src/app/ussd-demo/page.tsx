@@ -36,6 +36,7 @@ export default function USSDDemo() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -1183,6 +1184,23 @@ Select option:
     }));
   };
 
+  const showError = (error: string, isFatal: boolean = false) => {
+    setErrorMessage(error);
+    addMessage(`⚠️ ${error}`);
+    if (isFatal) {
+      addMessage('');
+      addMessage('1 → Try again');
+      addMessage('2 → Main menu');
+      addMessage('0 → Exit');
+      addMessage('');
+      addMessage('Select option:');
+    }
+  };
+
+  const clearError = () => {
+    setErrorMessage(null);
+  };
+
   // End session
   const endSession = () => {
     setState({
@@ -1414,7 +1432,7 @@ Select option:
                     </div>
                   ))}
                   {isLoading && (
-                    <div className="text-yellow-400 animate-pulse">⏳ Processing...</div>
+                    <div className="text-yellow-400 animate-pulse">⏳</div>
                   )}
                   
                   {/* Input Area - Positioned after content */}

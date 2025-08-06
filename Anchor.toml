@@ -6,7 +6,7 @@ skip-lint = false
 simchain_wallet = "CA8W1tSAho1u4sUXAtD7my962wsy94BDAW6cAd3YZ6kb"
 
 [programs.devnet]
-simchain_wallet = "DMaWHy1YmFNNKhyMWaTGpY76hKPdAhu4ExMHTGHU2j8r"
+simchain_wallet = "CA8W1tSAho1u4sUXAtD7my962wsy94BDAW6cAd3YZ6kb"
 
 [registry]
 url = "https://api.apr.dev"

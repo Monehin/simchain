@@ -21,12 +21,18 @@ This document specifies the complete USSD flow for SIMChain's multichain impleme
 - Recovery options provided
 - Graceful fallbacks
 
+### **4. Enhanced User Experience**
+- Auto-advancing screens for seamless flow
+- Disabled interactions during processing
+- Clear loading indicators
+- Intuitive button states
+
 ## 🔐 Registration & Authentication Flow
 
 ### **Initial USSD Access**
 ```
 Welcome to SIMChain
-*123# → Access SIMChain
+*906# → Access SIMChain
 
 Checking registration status...
 ⏳ Please wait...
@@ -46,12 +52,9 @@ If registered:
 Registration:
 Enter your phone number: +1234567890
 
-Confirm phone number:
-+1234567890
-
-1 → Confirm
-2 → Change number
-3 → Back
+Phone number not registered.
+1 → Register
+2 → Exit
 
 Select option:
 ```
@@ -74,10 +77,7 @@ Wallet created on Solana
 Address: BKrNbFUgnFbsp3wC3fxwGAKhbPPh9ArS7PM2pWHCrLGb
 Alias: IndigoRoadrunner
 
-1 → Continue to wallet
-2 → Back to main menu
-
-Select option:
+⏳ Auto-advancing to main menu...
 ```
 
 ### **User Login (if already registered)**

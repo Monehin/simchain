@@ -36,6 +36,7 @@ export default function USSDSimulator() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isTemporaryScreen, setIsTemporaryScreen] = useState(false);
 
   // Check if wallet exists using the wallet-exists endpoint
   const checkWalletExists = async (mobileNumber: string): Promise<boolean> => {
@@ -77,51 +78,63 @@ export default function USSDSimulator() {
   // Start USSD session
   const startSession = async (mobileNumber: string) => {
     setIsLoading(true);
-    addMessage('Connecting to Simchain...');
+    // Clear previous messages and show welcome
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage('Welcome to SIMChain');
+    addMessage('*906# → Access SIMChain');
+    addMessage('');
+    addMessage('Checking registration status...');
+    addMessage('⏳ Please wait...');
     
     const exists = await checkWalletExists(mobileNumber);
     
     setState(prev => ({ 
       ...prev, 
       isRegistered: exists,
-      currentMenu: exists ? 'pin' : 'registration',
+      currentMenu: exists ? 'pin' : 'registration_choice',
       menuStack: ['main']
     }));
     
     setIsLoading(false);
     
     if (exists) {
-      addMessage('Enter your 6-digit PIN:');
+      // Clear screen and show login prompt
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Welcome back!');
+      addMessage('Enter your PIN: ******');
     } else {
-      showRegistrationMenu();
+      showRegistrationChoice();
     }
   };
 
-  // Show registration menu
-  const showRegistrationMenu = () => {
-    setState(prev => ({
-      ...prev,
-      messages: [`
-Welcome to Simchain!
-You are not registered yet.
-1. Register Now
-2. Exit
-    `.trim()]
-    }));
+  // Show registration choice
+  const showRegistrationChoice = () => {
+    // Clear screen and show registration choice
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage('Phone number not registered.');
+    addMessage('');
+    addMessage('1 → Register');
+    addMessage('2 → Exit');
+    addMessage('');
+    addMessage('Select option:');
   };
 
   // Handle PIN validation
   const handlePinValidation = async (pin: string) => {
-    // Validate PIN format
-    if (!/^\d{6}$/.test(pin)) {
-      addMessage('❌ PIN must be exactly 6 digits. Try again:');
+    if (pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+      addMessage('❌ PIN must be 6 digits. Try again:');
       return;
     }
 
-    // If in registration, create wallet
     if (state.currentMenu === 'register_pin') {
+      // For new users, create wallet with PIN
       setIsLoading(true);
-      addMessage('⏳ Registering wallet on-chain...');
+      // Clear screen and show processing
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('PIN created successfully!');
+      addMessage('');
+      addMessage('Creating wallet...');
+      addMessage('⏳ Processing...');
       
       try {
         const response = await fetch('/api/create-wallet', {
@@ -137,47 +150,48 @@ You are not registered yet.
         setIsLoading(false);
         
         if (result.success) {
-          addMessage(`
-✅ Registration successful!
-Wallet created on-chain.
-Address: ${result.data.walletAddress.slice(0, 8)}...${result.data.walletAddress.slice(-8)}
-Alias: ${result.data.alias}
-
-Redirecting to main menu...
-          `.trim());
+          // Clear screen and show success briefly
+          setState(prev => ({ ...prev, messages: [] }));
+          addMessage('✅ Registration successful!');
+          addMessage('Wallet created on Solana');
+          addMessage(`Address: ${result.data.walletAddress}`);
+          addMessage(`Alias: ${result.data.alias}`);
+          
+          // Disable buttons during temporary screen
+          setIsTemporaryScreen(true);
           
           // Auto-advance to main menu after 3 seconds
           setTimeout(() => {
-            setState(prev => ({
-              ...prev,
-              pinAttempts: 0,
+            setState(prev => ({ 
+              ...prev, 
               currentMenu: 'main',
-              isRegistered: true,
-              walletAddress: result.data.walletAddress,
+              isAuthenticated: true,
               alias: result.data.alias,
-              isAuthenticated: true
+              walletAddress: result.data.walletAddress
             }));
+            setIsTemporaryScreen(false);
             showMainMenu();
           }, 3000);
         } else {
-          const errorMsg = result.error || 'Unknown error';
-          let userFriendlyError = '⚠️ Registration failed.';
-          
-          if (errorMsg.includes('already exists')) {
-            userFriendlyError = '⚠️ Wallet already exists for this number.';
-          } else if (errorMsg.includes('network') || errorMsg.includes('connection')) {
-            userFriendlyError = '⚠️ Network error. Please check your connection.';
-          } else if (errorMsg.includes('insufficient')) {
-            userFriendlyError = '⚠️ Insufficient funds for registration.';
-          } else {
-            userFriendlyError = `⚠️ Registration failed: ${errorMsg}`;
-          }
-          
-          addMessage(userFriendlyError);
+          // Clear screen and show error
+          setState(prev => ({ ...prev, messages: [] }));
+          addMessage(`❌ Registration failed`);
+          addMessage(`Reason: ${result.error || 'Phone number already registered'}`);
+          addMessage('');
+          addMessage('1 → Try PIN (login)');
+          addMessage('2 → Try different number');
+          addMessage('3 → Contact support');
+          addMessage('4 → Exit');
+          addMessage('');
+          addMessage('Select option:');
+          setState(prev => ({ ...prev, currentMenu: 'registration_error' }));
         }
       } catch (error) {
         setIsLoading(false);
-        addMessage('⚠️ Network error. Please try again later.');
+        // Clear screen and show error
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('❌ Network error. Try again.');
+        setState(prev => ({ ...prev, currentMenu: 'registration' }));
       }
       return;
     }
@@ -200,12 +214,27 @@ Redirecting to main menu...
         setState(prev => ({ ...prev, pinAttempts: attempts }));
         
         if (attempts >= 3) {
-          addMessage('Session expired. Dial *906# again.');
-          endSession();
+          // Clear screen and show lockout
+          setState(prev => ({ ...prev, messages: [] }));
+          addMessage('❌ Too many failed attempts');
+          addMessage('Account temporarily locked');
+          addMessage('Please try again in 15 minutes');
+          addMessage('');
+          addMessage('1 → Try again');
+          addMessage('2 → Contact support');
+          addMessage('3 → Exit');
+          addMessage('');
+          addMessage('Select option:');
+          setState(prev => ({ ...prev, currentMenu: 'account_locked' }));
           return;
         }
         
-        addMessage(`❌ Incorrect PIN. Try again: (${3 - attempts} attempts left)`);
+        // Clear screen and show retry
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('❌ Invalid PIN');
+        addMessage(`Attempts remaining: ${3 - attempts}`);
+        addMessage('');
+        addMessage('Enter PIN: ******');
         return;
       }
 
@@ -216,46 +245,139 @@ Redirecting to main menu...
         currentMenu: 'main',
         isAuthenticated: true
       }));
+      // Clear screen and show success
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('✅ Login successful!');
+      addMessage('');
       showMainMenu();
     } catch (error) {
       const attempts = state.pinAttempts + 1;
       setState(prev => ({ ...prev, pinAttempts: attempts }));
       
       if (attempts >= 3) {
-        addMessage('Session expired. Dial *906# again.');
-        endSession();
+        // Clear screen and show lockout
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('❌ Too many failed attempts');
+        addMessage('Account temporarily locked');
+        addMessage('Please try again in 15 minutes');
+        addMessage('');
+        addMessage('1 → Try again');
+        addMessage('2 → Contact support');
+        addMessage('3 → Exit');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'account_locked' }));
         return;
       }
       
-      addMessage(`❌ Network error. Try again: (${3 - attempts} attempts left)`);
+      // Clear screen and show retry
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('❌ Network error. Try again.');
+      addMessage(`Attempts remaining: ${3 - attempts}`);
+      addMessage('');
+      addMessage('Enter PIN: ******');
     }
   };
 
   // Show main menu
   const showMainMenu = () => {
+    // Clear screen and show main menu
     setState(prev => ({
       ...prev,
       messages: [`
-Simchain Wallet
-1. Check Balance
-2. Send Money
-3. Deposit Money
-4. Set Alias
-5. Services
-6. Cross-Chain Convert
-0. Exit
+USSD Menu:
+1 → Wallet
+2 → Set Alias
+3 → Services
+4 → Help
+5 → Exit
+
+Select option:
     `.trim()]
     }));
   };
 
+  // Show wallet menu
+  const showWalletMenu = () => {
+    // Clear screen and show wallet menu
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage(`
+Wallet Options:
+1 → SOL (Solana)
+2 → DOT (Polkadot)
+3 → USDC (Solana)
+4 → USDC (Polkadot)
+5 → Back to main menu
+
+Select option:
+    `.trim());
+    setState(prev => ({ ...prev, currentMenu: 'wallet' }));
+  };
+
+  // Show SOL wallet operations
+  const showSOLWallet = () => {
+    // Clear screen and show SOL wallet
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage(`
+SOL Wallet:
+1 → Check Balance
+2 → Send SOL
+3 → Receive SOL
+4 → Transaction History
+5 → Back
+
+Select option:
+    `.trim());
+    setState(prev => ({ ...prev, currentMenu: 'sol_wallet' }));
+  };
+
+  // Show DOT wallet operations
+  const showDOTWallet = () => {
+    // Clear screen and show DOT wallet
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage(`
+DOT Wallet:
+1 → Check Balance
+2 → Send DOT
+3 → Receive DOT
+4 → Transaction History
+5 → Back
+
+Select option:
+    `.trim());
+    setState(prev => ({ ...prev, currentMenu: 'dot_wallet' }));
+  };
+
   // Handle menu selection
   const handleMenuSelection = (selection: string) => {
-    if (state.currentMenu === 'registration') {
+    if (state.currentMenu === 'registration_choice') {
+      handleRegistrationChoice(selection);
+    } else if (state.currentMenu === 'registration') {
       handleRegistrationSelection(selection);
+
+    } else if (state.currentMenu === 'registration_error') {
+      handleRegistrationError(selection);
+    } else if (state.currentMenu === 'account_locked') {
+      handleAccountLocked(selection);
     } else if (state.currentMenu === 'main') {
       handleMainMenuSelection(selection);
+    } else if (state.currentMenu === 'wallet') {
+      handleWalletSelection(selection);
+    } else if (state.currentMenu === 'sol_wallet') {
+      handleSOLWalletSelection(selection);
+    } else if (state.currentMenu === 'dot_wallet') {
+      handleDOTWalletSelection(selection);
     } else if (state.currentMenu === 'services') {
       handleServicesSelection(selection);
+    } else if (state.currentMenu === 'swap_tokens') {
+      handleSwapTokensSelection(selection);
+    } else if (state.currentMenu === 'help') {
+      handleHelpSelection(selection);
+    } else if (state.currentMenu === 'help_send_funds' || 
+               state.currentMenu === 'help_swap_tokens' || 
+               state.currentMenu === 'help_fees' || 
+               state.currentMenu === 'help_contact') {
+      handleHelpSubmenu(selection);
     } else if (state.currentMenu === 'convert_source_token') {
       handleConvertSourceToken(selection);
     } else if (state.currentMenu === 'convert_target_token') {
@@ -272,6 +394,41 @@ Simchain Wallet
       handleDepositAmount(selection);
     } else if (state.currentMenu === 'alias_input') {
       handleAliasInput(selection);
+    } else if (state.currentMenu === 'balance_result' || 
+               state.currentMenu === 'receive_sol' || 
+               state.currentMenu === 'sol_history' || 
+               state.currentMenu === 'send_dot' || 
+               state.currentMenu === 'receive_dot' || 
+               state.currentMenu === 'dot_history' || 
+               state.currentMenu === 'usdc_solana' || 
+               state.currentMenu === 'usdc_polkadot' || 
+               state.currentMenu === 'interest_rates' || 
+               state.currentMenu === 'withdraw_vault' || 
+               state.currentMenu === 'loan_request' || 
+               state.currentMenu === 'loan_repayment' || 
+               state.currentMenu === 'stake_tokens' || 
+               state.currentMenu === 'staking_rewards' || 
+               state.currentMenu === 'network_error' || 
+               state.currentMenu === 'contact_support' ||
+               state.currentMenu === 'swap_sol_usdc' ||
+               state.currentMenu === 'swap_dot_usdc' ||
+               state.currentMenu === 'cross_chain_swap') {
+      handleGenericBackMenu(selection);
+    }
+  };
+
+  // Handle registration choice
+  const handleRegistrationChoice = (selection: string) => {
+    if (selection === '1') {
+      setState(prev => ({ ...prev, currentMenu: 'register_pin' }));
+      // Clear screen and show PIN creation
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Create PIN:');
+      addMessage('Enter 6-digit PIN: ******');
+    } else if (selection === '2') {
+      endSession();
+    } else {
+      addMessage('❌ Invalid selection. Try again:');
     }
   };
 
@@ -279,8 +436,77 @@ Simchain Wallet
   const handleRegistrationSelection = (selection: string) => {
     if (selection === '1') {
       setState(prev => ({ ...prev, currentMenu: 'register_pin' }));
-      addMessage('Enter a 6-digit PIN for your wallet:');
+      // Clear screen and show PIN creation
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Create PIN:');
+      addMessage('Enter 6-digit PIN: ******');
     } else if (selection === '2') {
+      setState(prev => ({ ...prev, currentMenu: 'dial' }));
+      // Clear screen and show number input
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Please enter a new mobile number:');
+    } else if (selection === '3') {
+      endSession();
+    } else {
+      addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+
+
+  // Handle registration error
+  const handleRegistrationError = (selection: string) => {
+    if (selection === '1') {
+      setState(prev => ({ ...prev, currentMenu: 'pin' }));
+      // Clear screen and show PIN input
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Enter your PIN: ******');
+    } else if (selection === '2') {
+      setState(prev => ({ ...prev, currentMenu: 'dial' }));
+      // Clear screen and show number input
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Please enter a new mobile number:');
+    } else if (selection === '3') {
+      // Clear screen and show contact info
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Contact Support:');
+      addMessage('Call: +1-800-SIMCHAIN');
+      addMessage('Email: support@simchain.com');
+      addMessage('Hours: 24/7');
+      addMessage('');
+      addMessage('1 → Back to main menu');
+      addMessage('2 → Exit');
+      addMessage('');
+      addMessage('Select option:');
+      setState(prev => ({ ...prev, currentMenu: 'contact_support' }));
+    } else if (selection === '4') {
+      endSession();
+    } else {
+      addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle account locked
+  const handleAccountLocked = (selection: string) => {
+    if (selection === '1') {
+      setState(prev => ({ ...prev, currentMenu: 'pin', pinAttempts: 0 }));
+      // Clear screen and show PIN input
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Enter your PIN: ******');
+    } else if (selection === '2') {
+      // Clear screen and show contact info
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('Contact Support:');
+      addMessage('Call: +1-800-SIMCHAIN');
+      addMessage('Email: support@simchain.com');
+      addMessage('Hours: 24/7');
+      addMessage('');
+      addMessage('1 → Back to main menu');
+      addMessage('2 → Exit');
+      addMessage('');
+      addMessage('Select option:');
+      setState(prev => ({ ...prev, currentMenu: 'contact_support' }));
+    } else if (selection === '3') {
       endSession();
     } else {
       addMessage('❌ Invalid selection. Try again:');
@@ -291,29 +517,159 @@ Simchain Wallet
   const handleMainMenuSelection = (action: string) => {
     switch (action) {
       case '1':
+        showWalletMenu();
+        break;
+      case '2':
+        setState(prev => ({ ...prev, currentMenu: 'alias_input' }));
+        // Clear screen and show alias menu
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Set Alias:');
+        addMessage('1 → SOL Alias');
+        addMessage('2 → DOT Alias');
+        addMessage('3 → View Aliases');
+        addMessage('4 → Back');
+        addMessage('');
+        addMessage('Select option:');
+        break;
+      case '3':
+        showServicesMenu();
+        break;
+      case '4':
+        showHelp();
+        break;
+      case '5':
+        endSession();
+        break;
+      default:
+        addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle wallet selection
+  const handleWalletSelection = (selection: string) => {
+    switch (selection) {
+      case '1':
+        showSOLWallet();
+        break;
+      case '2':
+        showDOTWallet();
+        break;
+      case '3':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('USDC (Solana) - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to wallet menu');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'usdc_solana' }));
+        break;
+      case '4':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('USDC (Polkadot) - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to wallet menu');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'usdc_polkadot' }));
+        break;
+      case '5':
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
+        showMainMenu();
+        break;
+      default:
+        addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle SOL wallet selection
+  const handleSOLWalletSelection = (selection: string) => {
+    switch (selection) {
+      case '1':
         checkBalance();
         break;
       case '2':
         setState(prev => ({ ...prev, currentMenu: 'send_amount' }));
-        addMessage('Enter amount to send:');
+        // Clear screen and show send prompt
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Send SOL:');
+        addMessage('Enter recipient SIM: +1234567890');
         break;
       case '3':
-        setState(prev => ({ ...prev, currentMenu: 'deposit_amount' }));
-        addMessage('Enter amount to deposit:');
+        // Clear screen and show receive info
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Receive SOL:');
+        addMessage(`Your address: ${state.walletAddress || 'Not available'}`);
+        addMessage('');
+        addMessage('1 → Back to SOL wallet');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'receive_sol' }));
         break;
       case '4':
-        setState(prev => ({ ...prev, currentMenu: 'alias_input' }));
-        addMessage('Enter your preferred alias:');
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Transaction History - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to SOL wallet');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'sol_history' }));
         break;
       case '5':
-        showServicesMenu();
+        showWalletMenu();
         break;
-      case '6':
-        setState(prev => ({ ...prev, currentMenu: 'convert_source_token' }));
-        addMessage('Select source token:\n1. SOL\n2. DOT');
+      default:
+        addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle DOT wallet selection
+  const handleDOTWalletSelection = (selection: string) => {
+    switch (selection) {
+      case '1':
+        checkBalance();
         break;
-      case '0':
-        endSession();
+      case '2':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Send DOT - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to DOT wallet');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'send_dot' }));
+        break;
+      case '3':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Receive DOT - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to DOT wallet');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'receive_dot' }));
+        break;
+      case '4':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Transaction History - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to DOT wallet');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'dot_history' }));
+        break;
+      case '5':
+        showWalletMenu();
         break;
       default:
         addMessage('❌ Invalid selection. Try again:');
@@ -323,6 +679,10 @@ Simchain Wallet
   // Check balance
   const checkBalance = async () => {
     setIsLoading(true);
+    // Clear screen and show loading
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage('⏳ Checking balance...');
+    
     try {
       const response = await fetch('/api/check-balance', {
         method: 'POST',
@@ -337,22 +697,38 @@ Simchain Wallet
       
       if (result.success) {
         const balance = result.data.balance;
+        // Clear screen and show balance
+        setState(prev => ({ ...prev, messages: [] }));
         addMessage(`
-Balance: ${balance} SOL
-Alias: ${result.data.alias || 'Not set'}
+SOL Balance: ${balance} SOL
+≈ $${(parseFloat(balance) * 100).toFixed(2)} USD
 
-1. Back to Main Menu
-0. Exit
+1 → Send SOL
+2 → Receive SOL
+3 → Back
+
+Select option:
         `.trim());
         setState(prev => ({ ...prev, currentMenu: 'balance_result' }));
       } else {
+        // Clear screen and show error
+        setState(prev => ({ ...prev, messages: [] }));
         addMessage(`❌ Error: ${result.error || 'Failed to check balance'}`);
         setState(prev => ({ ...prev, currentMenu: 'main' }));
       }
     } catch (error) {
       setIsLoading(false);
-      addMessage('❌ Network error. Try again.');
-      setState(prev => ({ ...prev, currentMenu: 'main' }));
+      // Clear screen and show error
+      setState(prev => ({ ...prev, messages: [] }));
+      addMessage('❌ Network error');
+      addMessage('Unable to connect to blockchain.');
+      addMessage('Please try again in a few minutes.');
+      addMessage('');
+      addMessage('1 → Retry');
+      addMessage('2 → Back to main menu');
+      addMessage('');
+      addMessage('Select option:');
+      setState(prev => ({ ...prev, currentMenu: 'network_error' }));
     }
   };
 
@@ -513,32 +889,120 @@ New alias: ${alias}
 
   // Show services menu
   const showServicesMenu = () => {
-    setState(prev => ({
-      ...prev,
-      messages: [`
-Services
-1. Health Check
-2. Help
-0. Back to Main Menu
-    `.trim()]
-    }));
+    // Clear screen and show services menu
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage(`
+DeFi Services:
+1. View Interest Rates - SOL
+2. Withdraw from Vault - DOT
+3. Loan Request - SOL
+4. Loan Repayment - SOL
+5. Stake Tokens - DOT
+6. View Staking Rewards - DOT
+7. Swap Tokens
+8. Back
+
+Select option:
+    `.trim());
+    setState(prev => ({ ...prev, currentMenu: 'services' }));
   };
 
   // Handle services selection
   const handleServicesSelection = (selection: string) => {
     switch (selection) {
       case '1':
-        performHealthCheck();
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('View Interest Rates - SOL - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to services');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'interest_rates' }));
         break;
       case '2':
-        showHelp();
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Withdraw from Vault - DOT - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to services');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'withdraw_vault' }));
         break;
-      case '0':
+      case '3':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Loan Request - SOL - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to services');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'loan_request' }));
+        break;
+      case '4':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Loan Repayment - SOL - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to services');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'loan_repayment' }));
+        break;
+      case '5':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Stake Tokens - DOT - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to services');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'stake_tokens' }));
+        break;
+      case '6':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('View Staking Rewards - DOT - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to services');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'staking_rewards' }));
+        break;
+      case '7':
+        showSwapTokensMenu();
+        break;
+      case '8':
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
         showMainMenu();
         break;
       default:
         addMessage('❌ Invalid selection. Try again:');
     }
+  };
+
+  // Show swap tokens menu
+  const showSwapTokensMenu = () => {
+    // Clear screen and show swap tokens menu
+    setState(prev => ({ ...prev, messages: [] }));
+    addMessage(`
+Swap Tokens:
+1. SOL ↔ DOT
+2. SOL ↔ USDC (Solana)
+3. DOT ↔ USDC (Polkadot)
+4. Cross-chain swap
+5. Back
+
+Select option:
+    `.trim());
+    setState(prev => ({ ...prev, currentMenu: 'swap_tokens' }));
   };
 
   // Perform health check
@@ -573,18 +1037,19 @@ Services: Operational
 
   // Show help
   const showHelp = () => {
+    // Clear screen and show help menu
+    setState(prev => ({ ...prev, messages: [] }));
     addMessage(`
-Help & Support
-- Dial *906# to access Simchain
-- Use number keys to navigate menus
-- Enter 0 to go back or exit
-- Keep your PIN secure
-- Contact support for issues
+Help & Support:
+1. How to send funds
+2. How to swap tokens
+3. Transaction fees
+4. Contact support
+5. Back
 
-1. Back to Services
-0. Back to Main Menu
+Select option:
     `.trim());
-    setState(prev => ({ ...prev, currentMenu: 'help_result' }));
+    setState(prev => ({ ...prev, currentMenu: 'help' }));
   };
 
   // Handle form submission
@@ -742,6 +1207,218 @@ Help & Support
     }
   };
 
+  // Handle help selection
+  const handleHelpSelection = (selection: string) => {
+    switch (selection) {
+      case '1':
+        // Clear screen and show help topic
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage(`
+How to send funds:
+1. Select Wallet → SOL/DOT
+2. Choose Send
+3. Enter recipient SIM
+4. Enter amount
+5. Confirm transaction
+
+1 → Next topic
+2 → Back to help
+3 → Main menu
+
+Select option:
+        `.trim());
+        setState(prev => ({ ...prev, currentMenu: 'help_send_funds' }));
+        break;
+      case '2':
+        // Clear screen and show help topic
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage(`
+How to swap tokens:
+1. Select Services → Swap Tokens
+2. Choose token pair
+3. Enter amount
+4. Confirm swap
+5. Wait for confirmation
+
+1 → Next topic
+2 → Back to help
+3 → Main menu
+
+Select option:
+        `.trim());
+        setState(prev => ({ ...prev, currentMenu: 'help_swap_tokens' }));
+        break;
+      case '3':
+        // Clear screen and show help topic
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage(`
+Transaction fees:
+- Solana: ~0.000005 SOL
+- Polkadot: ~0.01 DOT
+- Cross-chain: ~0.001 SOL
+- DeFi swaps: 0.1% + gas
+
+1 → Next topic
+2 → Back to help
+3 → Main menu
+
+Select option:
+        `.trim());
+        setState(prev => ({ ...prev, currentMenu: 'help_fees' }));
+        break;
+      case '4':
+        // Clear screen and show help topic
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage(`
+Contact Support:
+Call: +1-800-SIMCHAIN
+Email: support@simchain.com
+Hours: 24/7
+
+1 → Back to help
+2 → Main menu
+
+Select option:
+        `.trim());
+        setState(prev => ({ ...prev, currentMenu: 'help_contact' }));
+        break;
+      case '5':
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
+        showMainMenu();
+        break;
+      default:
+        addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle help submenu
+  const handleHelpSubmenu = (selection: string) => {
+    switch (selection) {
+      case '1':
+        if (state.currentMenu === 'help_send_funds') {
+          handleHelpSelection('2'); // Next topic: swap tokens
+        } else if (state.currentMenu === 'help_swap_tokens') {
+          handleHelpSelection('3'); // Next topic: fees
+        } else if (state.currentMenu === 'help_fees') {
+          handleHelpSelection('4'); // Next topic: contact
+        } else if (state.currentMenu === 'help_contact') {
+          handleHelpSelection('1'); // Back to first topic
+        }
+        break;
+      case '2':
+        showHelp();
+        break;
+      case '3':
+        setState(prev => ({ ...prev, currentMenu: 'main' }));
+        showMainMenu();
+        break;
+      default:
+        addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle generic back menu
+  const handleGenericBackMenu = (selection: string) => {
+    switch (selection) {
+      case '1':
+        if (state.currentMenu === 'balance_result') {
+          showSOLWallet();
+        } else if (state.currentMenu === 'receive_sol' || state.currentMenu === 'sol_history') {
+          showSOLWallet();
+        } else if (state.currentMenu === 'send_dot' || state.currentMenu === 'receive_dot' || state.currentMenu === 'dot_history') {
+          showDOTWallet();
+        } else if (state.currentMenu === 'usdc_solana' || state.currentMenu === 'usdc_polkadot') {
+          showWalletMenu();
+        } else if (state.currentMenu === 'interest_rates' || state.currentMenu === 'withdraw_vault' || 
+                   state.currentMenu === 'loan_request' || state.currentMenu === 'loan_repayment' || 
+                   state.currentMenu === 'stake_tokens' || state.currentMenu === 'staking_rewards' ||
+                   state.currentMenu === 'swap_sol_usdc' || state.currentMenu === 'swap_dot_usdc' ||
+                   state.currentMenu === 'cross_chain_swap') {
+          showServicesMenu();
+        } else if (state.currentMenu === 'network_error') {
+          checkBalance();
+        } else if (state.currentMenu === 'contact_support') {
+          setState(prev => ({ ...prev, currentMenu: 'main' }));
+          showMainMenu();
+        }
+        break;
+      case '2':
+        if (state.currentMenu === 'balance_result' || state.currentMenu === 'receive_sol' || state.currentMenu === 'sol_history') {
+          showSOLWallet();
+        } else if (state.currentMenu === 'send_dot' || state.currentMenu === 'receive_dot' || state.currentMenu === 'dot_history') {
+          showDOTWallet();
+        } else if (state.currentMenu === 'usdc_solana' || state.currentMenu === 'usdc_polkadot') {
+          showWalletMenu();
+        } else if (state.currentMenu === 'interest_rates' || state.currentMenu === 'withdraw_vault' || 
+                   state.currentMenu === 'loan_request' || state.currentMenu === 'loan_repayment' || 
+                   state.currentMenu === 'stake_tokens' || state.currentMenu === 'staking_rewards' ||
+                   state.currentMenu === 'swap_sol_usdc' || state.currentMenu === 'swap_dot_usdc' ||
+                   state.currentMenu === 'cross_chain_swap') {
+          showServicesMenu();
+        } else if (state.currentMenu === 'network_error' || state.currentMenu === 'contact_support') {
+          setState(prev => ({ ...prev, currentMenu: 'main' }));
+          showMainMenu();
+        }
+        break;
+      default:
+        addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
+  // Handle swap tokens selection
+  const handleSwapTokensSelection = (selection: string) => {
+    switch (selection) {
+      case '1':
+        setState(prev => ({ ...prev, currentMenu: 'convert_source_token' }));
+        // Clear screen and show token selection
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Select source token:');
+        addMessage('1. SOL');
+        addMessage('2. DOT');
+        addMessage('');
+        addMessage('Select option:');
+        break;
+      case '2':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('SOL ↔ USDC (Solana) - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to swap tokens');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'swap_sol_usdc' }));
+        break;
+      case '3':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('DOT ↔ USDC (Polkadot) - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to swap tokens');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'swap_dot_usdc' }));
+        break;
+      case '4':
+        // Clear screen and show coming soon
+        setState(prev => ({ ...prev, messages: [] }));
+        addMessage('Cross-chain swap - Coming Soon');
+        addMessage('');
+        addMessage('1 → Back to swap tokens');
+        addMessage('2 → Main menu');
+        addMessage('');
+        addMessage('Select option:');
+        setState(prev => ({ ...prev, currentMenu: 'cross_chain_swap' }));
+        break;
+      case '5':
+        showServicesMenu();
+        break;
+      default:
+        addMessage('❌ Invalid selection. Try again:');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       {/* Instructions Panel - Left Side */}
@@ -792,13 +1469,15 @@ Help & Support
                     value={state.mobileNumber}
                     onChange={(e) => setState(prev => ({ ...prev, mobileNumber: e.target.value }))}
                     placeholder="Enter mobile number"
-                    className="w-full p-4 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-center text-base"
+                    disabled={isLoading}
+                    className="w-full p-4 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none text-center text-base disabled:opacity-50"
                   />
                   <button
                     onClick={handleDial}
-                    className="w-full bg-blue-600 text-white py-4 px-6 rounded hover:bg-blue-700 transition-colors font-semibold text-base"
+                    disabled={isLoading}
+                    className="w-full bg-blue-600 text-white py-4 px-6 rounded hover:bg-blue-700 transition-colors disabled:opacity-50 font-semibold text-base"
                   >
-                    Dial *906#
+                    {isLoading ? 'Processing...' : 'Dial *906#'}
                   </button>
                 </div>
               </div>
@@ -834,22 +1513,23 @@ Help & Support
                       onChange={(e) => setInput(e.target.value)}
                       placeholder="Enter choice..."
                       className="w-full p-3 bg-black border border-gray-600 rounded text-green-400 font-mono focus:border-green-500 focus:outline-none text-center text-sm"
-                      disabled={isLoading}
+                      disabled={isLoading || isTemporaryScreen}
                     />
                     <div className="flex space-x-2">
                       <button
                         type="submit"
-                        disabled={isLoading}
+                        disabled={isLoading || isTemporaryScreen}
                         className="flex-1 bg-green-600 text-white py-3 px-4 rounded hover:bg-green-700 transition-colors disabled:opacity-50 font-semibold text-sm"
                       >
-                        Send
+                        {isLoading ? 'Processing...' : isTemporaryScreen ? 'Please wait...' : 'Send'}
                       </button>
                       <button
                         type="button"
                         onClick={endSession}
-                        className="flex-1 bg-red-600 text-white py-3 px-4 rounded hover:bg-red-700 transition-colors font-semibold text-sm"
+                        disabled={isLoading || isTemporaryScreen}
+                        className="flex-1 bg-red-600 text-white py-3 px-4 rounded hover:bg-red-700 transition-colors disabled:opacity-50 font-semibold text-sm"
                       >
-                        End
+                        {isLoading || isTemporaryScreen ? 'Disabled' : 'End'}
                       </button>
                     </div>
                   </form>

@@ -327,7 +327,7 @@ curl -X POST http://localhost:3000/api/relay \
     "sessionId": "session123",
     "msisdn": "+12345678901",
     "userInput": "",
-    "serviceCode": "*123#"
+    "serviceCode": "*906#"
   }'
 
 # Response: Welcome menu
@@ -347,7 +347,7 @@ curl -X POST http://localhost:3000/api/relay \
     "sessionId": "session123",
     "msisdn": "+12345678901",
     "userInput": "1",
-    "serviceCode": "*123#"
+    "serviceCode": "*906#"
   }'
 ```
 

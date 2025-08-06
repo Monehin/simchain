@@ -62,6 +62,8 @@ SIMChain enables **anyone with a mobile phone** to access Solana, Polkadot, and 
 - ✅ **Cross-chain conversion** - SOL ↔ DOT via Hyperbridge
 - ✅ **Responsive design** - Works on mobile and desktop
 - ✅ **Feature phone UI** - Authentic Nokia-style interface
+- ✅ **Enhanced UX** - Auto-advancing screens, disabled buttons during loading
+- ✅ **Intuitive flow** - Simplified registration, clear error handling
 
 ## 🏗️ Technical Architecture
 

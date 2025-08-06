@@ -174,7 +174,7 @@ export default function HyperbridgeDemo() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Cross-Chain Storage Query */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4">Cross-Chain Storage Query</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Cross-Chain Storage Query</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -183,7 +183,7 @@ export default function HyperbridgeDemo() {
                 <select
                   value={storageForm.sourceChain}
                   onChange={(e) => setStorageForm(prev => ({ ...prev, sourceChain: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="ethereum">Ethereum</option>
                   <option value="polkadot">Polkadot</option>
@@ -200,7 +200,7 @@ export default function HyperbridgeDemo() {
                 <select
                   value={storageForm.targetChain}
                   onChange={(e) => setStorageForm(prev => ({ ...prev, targetChain: e.target.value }))}
-                  className="w-full p-2 border border-gray-300 rounded-md"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="polkadot">Polkadot</option>
                   <option value="ethereum">Ethereum</option>
@@ -219,7 +219,7 @@ export default function HyperbridgeDemo() {
                   value={storageForm.storageKey}
                   onChange={(e) => setStorageForm(prev => ({ ...prev, storageKey: e.target.value }))}
                   placeholder="0x1234...:0x0lances.freeBalance:address"
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <button
@@ -242,7 +242,7 @@ export default function HyperbridgeDemo() {
 
           {/* Price Oracle */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4">💰 Price Oracle</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">💰 Price Oracle</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -253,7 +253,7 @@ export default function HyperbridgeDemo() {
                   value={oracleForm.sourceDEX}
                   onChange={(e) => setOracleForm(prev => ({ ...prev, sourceDEX: e.target.value }))}
                   placeholder="uniswap_v3"
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -265,7 +265,7 @@ export default function HyperbridgeDemo() {
                   value={oracleForm.tokenPair}
                   onChange={(e) => setOracleForm(prev => ({ ...prev, tokenPair: e.target.value }))}
                   placeholder="ETH/USDC"
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -276,7 +276,7 @@ export default function HyperbridgeDemo() {
                   type="number"
                   value={oracleForm.updateInterval}
                   onChange={(e) => setOracleForm(prev => ({ ...prev, updateInterval: parseInt(e.target.value) }))}
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <button
@@ -299,7 +299,7 @@ export default function HyperbridgeDemo() {
 
           {/* Identity Aggregation */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4">Identity Aggregation</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Identity Aggregation</h2>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -310,7 +310,7 @@ export default function HyperbridgeDemo() {
                   value={identityForm.userAddress}
                   onChange={(e) => setIdentityForm(prev => ({ ...prev, userAddress: e.target.value }))}
                   placeholder="042d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -322,25 +322,25 @@ export default function HyperbridgeDemo() {
                   value={identityForm.chains.join(', ')}
                   onChange={(e) => setIdentityForm(prev => ({ ...prev, chains: e.target.value.split(',').map(s => s.trim()) }))}
                   placeholder="ethereum, polkadot, solana"
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div className="flex space-x-4">
-                <label className="flex items-center">
+                <label className="flex items-center text-gray-700">
                   <input
                     type="checkbox"
                     checked={identityForm.includeBalances}
                     onChange={(e) => setIdentityForm(prev => ({ ...prev, includeBalances: e.target.checked }))}
-                    className="mr-2"
+                    className="mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                   />
                   Include Balances
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center text-gray-700">
                   <input
                     type="checkbox"
                     checked={identityForm.includeTransactions}
                     onChange={(e) => setIdentityForm(prev => ({ ...prev, includeTransactions: e.target.checked }))}
-                    className="mr-2"
+                    className="mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
                   />
                   Include Transactions
                 </label>
@@ -365,7 +365,7 @@ export default function HyperbridgeDemo() {
 
           {/* Cross-Chain Transfer */}
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-2xl font-semibold mb-4">Cross-Chain Transfer</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-gray-900">Cross-Chain Transfer</h2>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -375,7 +375,7 @@ export default function HyperbridgeDemo() {
                   <select
                     value={transferForm.fromChain}
                     onChange={(e) => setTransferForm(prev => ({ ...prev, fromChain: e.target.value }))}
-                    className="w-full p-2 border border-gray-300 rounded-md"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="ethereum">Ethereum</option>
                     <option value="polkadot">Polkadot</option>
@@ -389,7 +389,7 @@ export default function HyperbridgeDemo() {
                   <select
                     value={transferForm.toChain}
                     onChange={(e) => setTransferForm(prev => ({ ...prev, toChain: e.target.value }))}
-                    className="w-full p-2 border border-gray-300 rounded-md"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="polkadot">Polkadot</option>
                     <option value="ethereum">Ethereum</option>
@@ -406,7 +406,7 @@ export default function HyperbridgeDemo() {
                   value={transferForm.fromAddress}
                   onChange={(e) => setTransferForm(prev => ({ ...prev, fromAddress: e.target.value }))}
                   placeholder="042d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -418,7 +418,7 @@ export default function HyperbridgeDemo() {
                   value={transferForm.toAddress}
                   onChange={(e) => setTransferForm(prev => ({ ...prev, toAddress: e.target.value }))}
                   placeholder="5GrwvaEF5Xb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
-                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -431,7 +431,7 @@ export default function HyperbridgeDemo() {
                     value={transferForm.amount}
                     onChange={(e) => setTransferForm(prev => ({ ...prev, amount: e.target.value }))}
                     placeholder="1.0"
-                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
                 <div>
@@ -443,7 +443,7 @@ export default function HyperbridgeDemo() {
                     value={transferForm.token}
                     onChange={(e) => setTransferForm(prev => ({ ...prev, token: e.target.value }))}
                     placeholder="ETH"
-                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    className="w-full p-2 border border-gray-300 rounded-md text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
               </div>
@@ -468,25 +468,25 @@ export default function HyperbridgeDemo() {
 
         {/* Example Usage */}
         <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-semibold mb-4">📝 Example Usage</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-gray-900">📝 Example Usage</h2>
           <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Storage Query Examples:</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-                <li><strong>EVM:</strong> <code>0x1234567891234567890123456789012345678900</code> (contract:slot)</li>
-                <li><strong>Substrate:</strong> <code>balances.freeBalance:5GrwvaEF5Xb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY</code> (pallet.item:address)</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg mb-2">Demo Features:</h3>
-              <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
-                <li>✅ Real EVM storage queries using ethers.js</li>
-                <li>✅ Real Substrate storage queries using @polkadot/api</li>
-                <li>✅ Simulated cross-chain transfers with realistic responses</li>
-                <li>✅ Price oracle creation and management</li>
-                <li>✅ Cross-chain identity aggregation</li>
-              </ul>
-            </div>
+                          <div>
+                <h3 className="font-semibold text-lg mb-2 text-gray-900">Storage Query Examples:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  <li><strong>EVM:</strong> <code>0x1234567891234567890123456789012345678900</code> (contract:slot)</li>
+                  <li><strong>Substrate:</strong> <code>balances.freeBalance:5GrwvaEF5Xb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY</code> (pallet.item:address)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg mb-2 text-gray-900">Demo Features:</h3>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
+                  <li>✅ Real EVM storage queries using ethers.js</li>
+                  <li>✅ Real Substrate storage queries using @polkadot/api</li>
+                  <li>✅ Simulated cross-chain transfers with realistic responses</li>
+                  <li>✅ Price oracle creation and management</li>
+                  <li>✅ Cross-chain identity aggregation</li>
+                </ul>
+              </div>
           </div>
         </div>
       </div>

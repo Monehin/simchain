@@ -156,7 +156,7 @@ POST /api/send-funds
 
 # USSD relay
 POST /api/relay
-{"sessionId": "session123", "msisdn": "+12345678901", "userInput": "1", "serviceCode": "*123#"}
+{"sessionId": "session123", "msisdn": "+12345678901", "userInput": "1", "serviceCode": "*906#"}
 ```
 
 ### **Testing Endpoints**
